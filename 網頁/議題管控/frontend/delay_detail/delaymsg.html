@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>延遲案件列表</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #f1f5f9;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in {
+        animation: fadeIn 0.8s ease-out forwards;
+    }
+    /* .fade-out {
+        animation: fadeOut 0.8s forwards;
+    }
+    @keyframes fadeOut {
+        to {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+    } */
+    .fade-out {
+        animation: fadeOut 1.2s forwards;
+    }
+    @keyframes fadeOut {
+        to {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-gray-900 to-slate-800 text-white">
+
+<div id="app" class="flex flex-col min-h-screen">
+
+  <!-- 🔥 標題區 sticky -->
+  <div class="sticky top-0 z-20 w-full px-4 py-4 md:px-8 md:py-6 bg-slate-900 shadow-lg flex flex-col md:flex-row md:items-center gap-4">
+
+    <!-- 中間標題 + 搜尋欄 -->
+    <div class="flex-1 flex flex-col md:flex-row items-center gap-4 justify-center md:justify-center">
+      <h1 class="text-3xl md:text-4xl font-extrabold text-center md:text-center">
+        ⏳ 延遲案件 Dashboard
+      </h1>
+
+      <div class="w-full max-w-xs">
+        <input v-model="searchKeyword"
+          type="text"
+          placeholder="🔍 搜尋問題描述或總表項次"
+          class="w-full px-4 py-2 rounded-lg bg-slate-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 transition" />
+      </div>
+    </div>
+
+    <!-- 右側返回按鈕 -->
+    <div class="flex-none">
+      <button @click="back_datapage"
+        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition text-base">
+        🔙 返回 Dashboard
+      </button>
+    </div>
+
+  </div>
+
+  <!-- 🔥 中間間隔 -->
+  <div class="h-4 md:h-6"></div>
+
+<!-- 表格區 -->
+<!-- 表格區 -->
+<div 
+  v-show="!isLoading" 
+  :class="{'fade-in': isFadeIn}" 
+  class="flex-1 w-full relative bg-slate-800 rounded-t-2xl p-2 md:p-6"
+  style="max-height: 760px;"
+>
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm text-center table-fixed border-separate border-spacing-0">
+      <thead class="bg-cyan-600 text-white sticky top-0 z-10">
+        <tr>
+          <th class="p-2 md:p-3 w-[150px] whitespace-nowrap">總表項次</th>
+          <th class="p-2 md:p-3 w-[120px] whitespace-nowrap">提案日期</th>
+          <th class="p-2 md:p-3 w-[120px] whitespace-nowrap">Due日期</th>
+          <th class="p-2 md:p-3 w-[120px] whitespace-nowrap">距今天數</th>
+          <th class="p-2 md:p-3 w-[300px] whitespace-nowrap">問題描述</th>
+          <th class="p-2 md:p-3 w-[120px] whitespace-nowrap">後端確認</th>
+          <th class="p-2 md:p-3 w-[120px] whitespace-nowrap">查看細項</th>
+        </tr>
+      </thead>
+    </table>
+
+    <div class="overflow-y-auto" style="max-height: 660px;">
+      <table class="min-w-full text-sm text-center table-fixed">
+        <tbody class="bg-slate-700 text-white">
+          <template v-if="filteredList.length > 0">
+            <tr v-for="item in filteredList" :key="item['總表項次']"
+              class="border-b border-slate-600 hover:bg-slate-600 transition-all duration-300">
+              <td class="p-2 md:p-3 w-[150px] truncate">{{ item["總表項次"] }}</td>
+              <td class="p-2 md:p-3 w-[120px] truncate">{{ item["提案日期"] }}</td>
+              <td class="p-2 md:p-3 w-[120px] truncate">{{ item["Due"] }}</td>
+              <td class="p-2 md:p-3 w-[100px] text-red-500 font-bold">
+                {{ calculateDaysDiff(item["Due"]) }}
+              </td> <!-- ✅ 新增 -->
+              <td class="p-2 md:p-3 w-[300px] text-left break-words">{{ item["問題描述"] }}</td>
+              <td class="p-2 md:p-3 w-[120px] truncate">{{ item["後端確認"] }}</td>
+              <td class="p-2 md:p-3 w-[120px]">
+                <button @click="viewDetails(item)"
+                  class="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg shadow transition-all text-sm">
+                  查看
+                </button>
+              </td>
+            </tr>
+          </template>
+
+          <template v-else>
+            <tr>
+              <td colspan="6" class="py-16 text-center text-lg text-gray-300 animate-pulse">
+                😢 找不到符合條件的延遲案件
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+  
+  <!-- 🔥 loading遮罩 -->
+    <!-- 🔥 loading遮罩 -->
+    <div v-if="isLoading" class="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-center items-center z-30 space-y-4">
+      <div class="border-4 border-t-transparent border-cyan-400 rounded-full w-12 h-12 animate-spin"></div>
+      <div class="text-cyan-300 text-xl font-semibold tracking-wider flex items-center">
+        <span id="loadingText">加載中</span><span id="dotAnimation"></span>
+      </div>
+    </div>
+
+  <!-- 跳轉遮罩 -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex flex-col justify-center items-center z-50 hidden space-y-4">
+    <div class="border-4 border-t-transparent border-cyan-400 rounded-full w-12 h-12 animate-spin"></div>
+    <div class="text-cyan-300 text-xl font-semibold tracking-wider flex items-center">
+      <span id="jumpText">跳轉中</span><span id="jumpDotAnimation"></span>
+    </div>
+  </div>
+
+
+  <div class="fixed bottom-6 right-6 flex flex-col gap-4 z-40">
+    <button @click="goAnotherPage"
+      class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow transition text-base">
+      ➡️ 前往所有細項
+    </button>
+  </div>
+  
+  
+  
+  
+
+</div>
+
+<script src="../../static/js/dalaymsg.js"></script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>科技感專案管理登入</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f172a;
+      color: #cbd5e1;
+    }
+    #particles-js {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #0f172a 0%, #0a0f1a 100%);
+      z-index: 0;
+    }
+    .glow {
+      background: linear-gradient(135deg, #0f172a, #1e3a8a);
+      box-shadow: 0 0 20px #0ea5e9, 0 0 40px #1d4ed8, 0 0 60px #0ea5e9;
+      border-radius: 20px;
+    }
+    .spinner {
+      border: 6px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      width: 4rem;
+      height: 4rem;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="particles-js"></div>
+
+  <div id="app" class="min-h-screen flex items-center justify-center relative z-10">
+    <div v-if="isLoading" class="absolute inset-0 flex justify-center items-center bg-black/70 z-20">
+      <div class="spinner"></div>
+    </div>
+
+    <div v-show="!isLoading" class="bg-white/5 backdrop-blur-md p-10 rounded-2xl shadow-2xl w-96 glow animate-fadeIn">
+      <h2 class="text-4xl font-extrabold text-center mb-8 tracking-wider">🚀 專案管理登入</h2>
+
+      <form @submit.prevent="submitForm" class="flex flex-col gap-6">
+        <input v-model="username" type="text" placeholder="使用者名稱"
+          class="w-full px-4 py-3 rounded-lg bg-white/10 text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400">
+        <input v-model="password" type="password" placeholder="密碼"
+          class="w-full px-4 py-3 rounded-lg bg-white/10 text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400">
+        <button type="submit"
+          class="mt-4 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-600 hover:to-indigo-700 py-3 rounded-lg text-white font-bold transition-all">
+          登入系統
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    particlesJS('particles-js', {
+      particles: {
+        number: { value: 80, density: { enable: true, value_area: 800 } },
+        color: { value: '#ffffff' },
+        shape: { type: 'circle' },
+        opacity: { value: 0.5, random: false },
+        size: { value: 2, random: true },
+        line_linked: { enable: true, distance: 150, color: '#ffffff', opacity: 0.4, width: 1 },
+        move: { enable: true, speed: 3 }
+      },
+      interactivity: {
+        detect_on: 'canvas',
+        events: {
+          onhover: { enable: true, mode: 'repulse' },
+          onclick: { enable: true, mode: 'push' }
+        },
+        modes: {
+          repulse: { distance: 100 },
+          push: { particles_nb: 4 }
+        }
+      },
+      retina_detect: true
+    });
+
+    const { createApp } = Vue
+
+    const app = createApp({
+      data() {
+        return {
+          username: '',
+          password: '',
+          isLoading: false
+        }
+      },
+      methods: {
+        async submitForm() {
+          this.isLoading = true;
+          try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const response = await axios.post('http://127.0.0.1:5000/api/login', {
+              username: this.username,
+              password: this.password
+            });
+            if (response.data.success) {
+              localStorage.setItem('username', this.username);
+              window.location.href = 'frontend/DataPage.html';
+            } else {
+              alert('帳號或密碼錯誤');
+              this.username = '';
+              this.password = '';
+            }
+          } catch (error) {
+            console.error('登入錯誤:', error);
+            alert('伺服器錯誤，請稍後再試');
+          } finally {
+            this.isLoading = false;
+          }
+        }
+      }
+    });
+
+    app.mount('#app');
+  </script>
+</body>
+</html>

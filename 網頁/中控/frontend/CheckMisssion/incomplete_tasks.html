@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>未完成事項 - FT01 資訊管理組</title>
+    <script src="../static/js/package/tailwindcss.js"></script>
+    <script src="../static/js/package/vue.global.js"></script>
+    <script src="../static/js/package/lucide.js"></script>
+    <script src="../static/js/package/sweetalert2@11.js"></script>
+    <script src="../static/js/session-checker.js"></script>
+    <style>
+        @font-face {
+            font-family: 'Iansui';
+            src: url('../static/fonts/Iansui-Regular.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        body {
+            font-family: 'Iansui', 'Noto Sans TC', sans-serif;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(45deg, #f59e0b, #ef4444, #ec4899);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            animation: gradient-shift 3s ease-in-out infinite;
+        }
+        
+        @keyframes gradient-shift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* 暗色模式樣式 */
+        .dark-mode {
+            background: linear-gradient(to bottom right, #1a1a2e, #16213e, #0f3460) !important;
+        }
+
+        .dark-mode .bg-white\/70 {
+            background: rgba(30, 30, 30, 0.7) !important;
+        }
+
+        .dark-mode .text-gray-800 {
+            color: #e5e5e5 !important;
+        }
+
+        .dark-mode .text-gray-600 {
+            color: #a0a0a0 !important;
+        }
+
+        .dark-mode .text-gray-700 {
+            color: #b0b0b0 !important;
+        }
+
+        .dark-mode .text-gray-500 {
+            color: #9a9a9a !important;
+        }
+
+        .dark-mode .border-orange-100 {
+            border-color: rgba(251, 146, 60, 0.3) !important;
+        }
+
+        .dark-mode .border-orange-200 {
+            border-color: rgba(251, 146, 60, 0.4) !important;
+        }
+
+        .dark-mode .border-red-200 {
+            border-color: rgba(239, 68, 68, 0.4) !important;
+        }
+
+        .dark-mode .border-yellow-200 {
+            border-color: rgba(234, 179, 8, 0.4) !important;
+        }
+
+        .dark-mode .bg-gradient-to-br {
+            background: linear-gradient(to bottom right, #1a1a2e, #16213e, #0f3460) !important;
+        }
+
+        .dark-mode .bg-red-50 {
+            background: rgba(50, 30, 30, 0.7) !important;
+        }
+
+        .dark-mode .bg-yellow-50 {
+            background: rgba(50, 45, 30, 0.7) !important;
+        }
+
+        .dark-mode .bg-white {
+            background: rgba(30, 30, 30, 0.9) !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="min-h-screen" :class="isDarkMode ? 'dark-mode' : 'bg-gradient-to-br from-amber-50 via-orange-50 to-red-50'">
+            <!-- 頭部導航 -->
+            <div class="bg-white/70 backdrop-blur-sm border-b border-orange-100 sticky top-0 z-10">
+                <div class="container mx-auto px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <button @click="goBack" class="w-10 h-10 bg-orange-100 hover:bg-orange-200 rounded-full flex items-center justify-center transition-colors">
+                                <i data-lucide="arrow-left" class="w-5 h-5 text-orange-600"></i>
+                            </button>
+                            <div>
+                                <h1 class="text-xl font-bold gradient-text">FT01 資訊管理組</h1>
+                                <p class="text-sm text-gray-600">未完成事項管理</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <!-- 顯示當前用戶身份 -->
+                            <div class="text-sm text-gray-600">
+                                <span class="font-medium">{{ username }}</span>
+                                <span class="ml-2 px-2 py-1 rounded-full text-xs" :class="getRoleBadgeClass()">
+                                    {{ role }}
+                                </span>
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                {{ currentTime.toLocaleString('zh-TW') }}
+                            </div>
+                            <!-- 暗色模式切換按鈕 -->
+                            <button @click="toggleDarkMode" class="ml-2 w-10 h-10 rounded-full bg-gradient-to-r from-orange-400 to-red-400 hover:from-orange-500 hover:to-red-500 flex items-center justify-center transition-all duration-300 shadow-lg group">
+                                <i :data-lucide="isDarkMode ? 'sun' : 'moon'" class="w-5 h-5 text-white group-hover:rotate-12 transition-transform"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="container mx-auto px-6 py-8">
+                <!-- 載入中狀態 -->
+                <div v-if="loading" class="text-center py-16">
+                    <div class="animate-spin w-12 h-12 border-4 border-orange-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p class="text-gray-600">載入中...</p>
+                </div>
+
+                <!-- 網站資訊卡片 -->
+                <div v-else-if="websiteData" class="max-w-4xl mx-auto">
+                    <!-- 網站標題區 -->
+                    <div class="bg-white/70 backdrop-blur-sm rounded-3xl p-8 shadow-lg border border-orange-100 mb-8">
+                        <div class="flex items-center gap-6">
+                            <div :class="websiteData.color" class="w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg">
+                                <i :data-lucide="websiteData.icon" class="w-10 h-10 text-white"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h2 class="text-3xl font-bold text-gray-800 mb-2">{{ websiteData.name }}</h2>
+                                <p class="text-gray-600 mb-4">{{ websiteData.description }}</p>
+                                <div class="flex items-center gap-4">
+                                    <span class="px-3 py-1 bg-red-100 text-red-700 text-sm rounded-full border border-red-200 font-medium">
+                                        未完成 {{ websiteData.percentage }}%
+                                    </span>
+                                    <button 
+                                        @click="openOriginalSite"
+                                        class="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                                    >
+                                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                                        前往網站
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 進度概覽 -->
+                    <div class="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-orange-100 mb-8">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">進度概覽</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-green-600">{{ 100 - websiteData.percentage }}%</div>
+                                <div class="text-gray-600">已完成</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-red-600">{{ websiteData.percentage }}%</div>
+                                <div class="text-gray-600">未完成</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-blue-600">{{ totalTasks }}</div>
+                                <div class="text-gray-600">總事項</div>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700">整體進度</span>
+                                <span class="text-sm text-gray-600">{{ 100 - websiteData.percentage }}% 完成</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-4">
+                                <div 
+                                    class="bg-gradient-to-r from-green-400 to-green-600 h-4 rounded-full transition-all duration-1000"
+                                    :style="{ width: (100 - websiteData.percentage) + '%' }"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 未完成事項列表 -->
+                    <div class="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-orange-100">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-xl font-bold text-gray-800">未完成事項清單</h3>
+                            <!-- ✅ 只有編輯者才能看到新增按鈕 -->
+                            <button 
+                                v-if="isEditor"
+                                @click="openAddTaskModal"
+                                class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-400 to-red-400 text-white rounded-lg hover:from-orange-500 hover:to-red-500 transition-all duration-300 text-sm font-medium shadow-lg"
+                            >
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                新增未完成事項
+                            </button>
+                        </div>
+                        
+                        <!-- 無未完成事項 -->
+                        <div v-if="!websiteData.incompleteTasks || websiteData.incompleteTasks.length === 0" class="text-center py-12">
+                            <i data-lucide="check-circle" class="w-20 h-20 mx-auto mb-6 text-green-400"></i>
+                            <h4 class="text-2xl font-bold text-gray-800 mb-2">恭喜!全部完成</h4>
+                            <p class="text-gray-600">這個網站的所有事項都已經處理完畢</p>
+                        </div>
+
+                        <!-- 未完成事項卡片 -->
+                        <div v-else class="space-y-4">
+                            <div 
+                                v-for="(task, index) in websiteData.incompleteTasks" 
+                                :key="index"
+                                :class="['flex items-start gap-4 p-6 rounded-xl transition-colors', getPriorityCardColor(task.priority)]"
+                            >
+                                <div class="w-8 h-8 rounded-full bg-red-200 flex items-center justify-center flex-shrink-0 mt-1">
+                                    <i data-lucide="alert-circle" class="w-5 h-5 text-red-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="text-lg font-semibold text-gray-800 mb-2">{{ task.title }}</h4>
+                                    <p class="text-gray-600 mb-4">{{ task.description }}</p>
+                                    <div class="flex items-center gap-6 text-sm text-gray-500">
+                                        <span class="flex items-center gap-1">
+                                            <i data-lucide="calendar" class="w-4 h-4"></i>
+                                            預計完成:{{ task.dueDate }}
+                                        </span>
+                                        <span class="flex items-center gap-1" :class="getPriorityColor(task.priority)">
+                                            <i data-lucide="flag" class="w-4 h-4"></i>
+                                            {{ getPriorityText(task.priority) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <!-- ✅ 只有編輯者才能看到按鈕 -->
+                                <div v-if="isEditor" class="flex flex-col gap-2">
+                                    <button 
+                                        @click="markAsCompleted(task, index)"
+                                        class="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm flex items-center justify-center gap-1"
+                                    >
+                                        <i data-lucide="check" class="w-3 h-3"></i>
+                                        完成
+                                    </button>
+                                    <button 
+                                        @click="openEditTaskModal(task, index)"
+                                        class="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                                    >
+                                        編輯
+                                    </button>
+                                    <button 
+                                        @click="deleteTask(index)"
+                                        class="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                                    >
+                                        刪除
+                                    </button>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <span 
+                                        class="px-3 py-1 text-xs font-medium rounded-full"
+                                        :class="getPriorityBadgeColor(task.priority)"
+                                    >
+                                        {{ getPriorityText(task.priority) }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 操作按鈕 -->
+                    <div class="flex gap-4 mt-8">
+                        <button
+                            @click="goBack"
+                            class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+                        >
+                            返回中控室
+                        </button>
+                        <button
+                            @click="openOriginalSite"
+                            class="flex-1 bg-gradient-to-r from-blue-400 to-blue-500 text-white py-3 rounded-xl hover:from-blue-500 hover:to-blue-600 transition-all duration-300 font-medium flex items-center justify-center gap-2"
+                        >
+                            <i data-lucide="external-link" class="w-4 h-4"></i>
+                            前往網站處理
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 錯誤狀態 -->
+                <div v-else class="text-center py-16">
+                    <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4 text-yellow-500"></i>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">無法載入資料</h3>
+                    <p class="text-gray-600 mb-6">找不到對應的網站資訊,請從中控室重新進入</p>
+                    <button 
+                        @click="goBack"
+                        class="px-6 py-2 bg-orange-400 text-white rounded-lg hover:bg-orange-500 transition-colors"
+                    >
+                        返回中控室
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增/編輯任務模態框 -->
+        <div v-if="showTaskModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">{{ isEditMode ? '編輯' : '新增' }}未完成事項</h2>
+                    <button @click="closeTaskModal" class="text-gray-500 hover:text-gray-700">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">任務標題</label>
+                        <input 
+                            type="text" 
+                            v-model="currentTask.title" 
+                            placeholder="輸入任務標題"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">任務描述</label>
+                        <textarea 
+                            v-model="currentTask.description" 
+                            placeholder="輸入任務詳細描述"
+                            rows="4"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">預計完成日期</label>
+                        <input 
+                            type="date" 
+                            v-model="currentTask.dueDate"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">優先級</label>
+                        <select 
+                            v-model="currentTask.priority"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        >
+                            <option value="low">低優先級</option>
+                            <option value="medium">中優先級</option>
+                            <option value="high">高優先級</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-8">
+                    <button 
+                        @click="saveTask"
+                        :disabled="!currentTask.title || !currentTask.description"
+                        class="flex-1 bg-gradient-to-r from-orange-400 to-red-400 text-white py-3 rounded-xl hover:from-orange-500 hover:to-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-medium"
+                    >
+                        {{ isEditMode ? '保存' : '新增' }}
+                    </button>
+                    <button 
+                        @click="closeTaskModal"
+                        class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 transition-colors duration-300 font-medium"
+                    >
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/js/incomplete_tasks.js"></script>
+</body>
+</html>

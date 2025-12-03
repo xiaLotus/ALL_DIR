@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A3CIM_4000 專用爬蟲の監控看板</title>
+  <script src="static/js/package/tailwind.js"></script>
+  <script src="static/js/package/vue.global.js"></script>
+  <script src="static/js/package/socket.io.min.js"></script>
+  <script src="static/js/package/lucide.min.js"></script>
+  <style>
+    .pulse-ring {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .progress-bar {
+      transition: width 0.3s ease;
+    }
+    .status-idle { 
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); 
+    }
+    .status-running { 
+      background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%); 
+    }
+    .status-completed { 
+      background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); 
+    }
+    /* 展開/收起動畫 */
+    .fade-enter-active, .fade-leave-active {
+      transition: all 0.3s ease;
+    }
+    .fade-enter-from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    .fade-leave-to {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-200 min-h-screen py-8 px-4">
+  <div id="app" class="max-w-7xl mx-auto">
+
+    <!-- 標題 -->
+    <h1 class="text-4xl md:text-5xl font-extrabold text-center mb-8 bg-gradient-to-r from-emerald-400 to-teal-500 text-transparent bg-clip-text">
+      A3CIM_4000 專用爬蟲の監控看板
+    </h1>
+
+    <!-- 選擇區塊（含連線狀態） -->
+    <div class="flex justify-center items-center gap-4 mb-8 flex-wrap">
+      <!-- 連線狀態指示器 -->
+      <div :class="['px-4 py-2 rounded-full shadow-lg flex items-center space-x-2 transition-all',
+                    connected ? 'bg-emerald-600' : 'bg-red-600']">
+        <div :class="['w-2 h-2 rounded-full', connected ? 'bg-emerald-200 pulse-ring' : 'bg-red-200']"></div>
+        <span class="text-white text-sm font-medium">
+          {{ connected ? '已連線' : '未連線' }}
+        </span>
+      </div>
+      
+      <button @click="switchTab('task')"
+        :class="['px-6 py-3 rounded-lg font-bold transition-all flex items-center space-x-2', 
+                 activeTab === 'task' ? 'bg-emerald-600 text-white shadow-lg scale-105' : 'bg-gray-700 text-gray-300 hover:bg-gray-600']">
+        <i data-lucide="list-checks" class="w-5 h-5"></i>
+        <span>Web Report 抓取</span>
+      </button>
+      
+      <button @click="switchTab('wip')"
+        :class="['px-6 py-3 rounded-lg font-bold transition-all flex items-center space-x-2',
+                 activeTab === 'wip' ? 'bg-emerald-600 text-white shadow-lg scale-105' : 'bg-gray-700 text-gray-300 hover:bg-gray-600']">
+        <i data-lucide="activity" class="w-5 h-5"></i>
+        <span>WIP 進度</span>
+      </button>
+    </div>
+
+    <!-- Task 區塊 -->
+    <div v-show="activeTab === 'task'" class="space-y-6">
+      
+      <!-- 當前輪次進度卡片 -->
+      <div class="bg-gray-800 rounded-xl p-6 shadow-2xl border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-bold text-emerald-400 flex items-center">
+            <i data-lucide="play-circle" class="w-7 h-7 mr-2"></i>
+            當前輪次
+          </h2>
+          <div :class="['px-4 py-2 rounded-full text-sm font-bold text-white', getStatusClass(taskProgress.status)]">
+            {{ getStatusText(taskProgress.status) }}
+          </div>
+        </div>
+
+        <!-- 進度條 -->
+        <div class="mb-4">
+          <div class="flex justify-between text-sm text-gray-400 mb-2">
+            <span>進度</span>
+            <span class="font-mono">{{ taskProgress.current_index }} / {{ taskProgress.total }}</span>
+          </div>
+          <div class="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div class="progress-bar h-full bg-gradient-to-r from-emerald-500 to-teal-400"
+                 :style="{width: getProgressPercent(taskProgress) + '%'}">
+            </div>
+          </div>
+          <div class="text-right text-sm text-emerald-400 mt-1 font-bold">
+            {{ getProgressPercent(taskProgress) }}%
+          </div>
+        </div>
+
+        <!-- 當前任務 -->
+        <div v-if="taskProgress.current_task" class="bg-gray-700/50 rounded-lg p-4 mb-4">
+          <div class="text-sm text-gray-400 mb-1">當前執行任務：</div>
+          <div class="text-lg font-mono text-emerald-300 flex items-center">
+            <span class="pulse-ring inline-block w-2 h-2 rounded-full bg-emerald-400 mr-3"></span>
+            {{ taskProgress.current_task }}
+          </div>
+        </div>
+
+        <!-- 本輪時間資訊 -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-700/30 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">本輪次</div>
+            <div class="text-sm font-bold text-white">第 {{ taskRound.current_round }} 輪</div>
+          </div>
+          <div class="bg-gray-700/30 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">開始時間</div>
+            <div class="text-sm font-mono text-white">
+              {{ formatTime(taskRound.current_start) }}
+            </div>
+          </div>
+          <div class="bg-gray-700/30 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">結束時間</div>
+            <div class="text-sm font-mono text-white">
+              {{ formatTime(taskRound.current_end) || '執行中...' }}
+            </div>
+          </div>
+          <div class="bg-gray-700/30 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">執行時長</div>
+            <div class="text-sm font-bold text-emerald-400">
+              {{ calculateDuration(taskRound.current_start, taskRound.current_end) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Task 列表表格 -->
+      <div class="bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-700">
+        <div class="flex items-center justify-between mb-4 cursor-pointer" @click="taskListExpanded = !taskListExpanded">
+          <h3 class="text-xl font-bold text-gray-300 flex items-center">
+            <i data-lucide="list" class="w-6 h-6 mr-2"></i>
+            Task 任務列表
+          </h3>
+          <button class="p-2 hover:bg-gray-700 rounded-lg transition-colors">
+            <i :data-lucide="taskListExpanded ? 'chevron-up' : 'chevron-down'" class="w-5 h-5 text-gray-400"></i>
+          </button>
+        </div>
+        
+        <transition name="fade">
+          <div v-show="taskListExpanded">
+            <div v-if="tasks.length === 0" class="text-center text-gray-400 py-8">
+              尚未收到 Task 資料
+            </div>
+            <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div v-for="(task, index) in tasks" :key="`task-${index}-${task.done}`"
+                   :class="['p-3 rounded-lg border-2 flex flex-col items-center justify-center transition-all',
+                            task.done 
+                            ? 'border-emerald-500 bg-emerald-900/20' 
+                            : 'border-gray-600 bg-gray-800']">
+                <i :data-lucide="task.done ? 'check-circle-2' : 'circle'"
+                   :class="['w-6 h-6 mb-2', task.done ? 'text-emerald-400' : 'text-gray-500']"></i>
+                <span :class="['text-xs text-center font-mono', task.done ? 'text-emerald-300' : 'text-gray-400']">
+                  {{ task.name }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </transition>
+      </div>
+
+      <!-- 歷史記錄 -->
+      <div v-if="taskRound.history && taskRound.history.length > 0" class="bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-700">
+        <h3 class="text-xl font-bold text-gray-300 mb-4 flex items-center">
+          <i data-lucide="file-text" class="w-6 h-6 mr-2"></i>
+          執行歷史（最近 {{ taskRound.history.length }} 輪）
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-700/50">
+              <tr>
+                <th class="px-4 py-2 text-left text-gray-300">輪次</th>
+                <th class="px-4 py-2 text-left text-gray-300">開始時間</th>
+                <th class="px-4 py-2 text-left text-gray-300">結束時間</th>
+                <th class="px-4 py-2 text-left text-gray-300">執行時長</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(record, idx) in taskRound.history" :key="`task-history-${idx}`"
+                  class="border-b border-gray-700 hover:bg-gray-700/30 transition-colors">
+                <td class="px-4 py-3 font-bold text-emerald-400">第 {{ record.round }} 輪</td>
+                <td class="px-4 py-3 font-mono text-gray-300">{{ formatTime(record.start) }}</td>
+                <td class="px-4 py-3 font-mono text-gray-300">{{ formatTime(record.end) }}</td>
+                <td class="px-4 py-3 font-bold text-teal-400">{{ calculateDuration(record.start, record.end) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- WIP 區塊 -->
+    <div v-show="activeTab === 'wip'" class="space-y-6">
+      
+      <!-- 當前輪次進度卡片 -->
+      <div class="bg-gray-800 rounded-xl p-6 shadow-2xl border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-bold text-purple-400 flex items-center">
+            <i data-lucide="play-circle" class="w-7 h-7 mr-2"></i>
+            當前 WIP 輪次
+          </h2>
+          <div :class="['px-4 py-2 rounded-full text-sm font-bold text-white', getStatusClass(wipProgress.status)]">
+            {{ getStatusText(wipProgress.status) }}
+          </div>
+        </div>
+
+        <!-- 進度條 -->
+        <div class="mb-4">
+          <div class="flex justify-between text-sm text-gray-400 mb-2">
+            <span>進度</span>
+            <span class="font-mono">{{ wipProgress.current_index }} / {{ wipProgress.total }}</span>
+          </div>
+          <div class="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div class="progress-bar h-full bg-gradient-to-r from-purple-500 to-pink-400"
+                 :style="{width: getProgressPercent(wipProgress) + '%'}">
+            </div>
+          </div>
+          <div class="text-right text-sm text-purple-400 mt-1 font-bold">
+            {{ getProgressPercent(wipProgress) }}%
+          </div>
+        </div>
+
+        <!-- 當前任務 -->
+        <div v-if="wipProgress.current_task" class="bg-gray-700/50 rounded-lg p-4 mb-4">
+          <div class="text-sm text-gray-400 mb-1">當前執行任務：</div>
+          <div class="text-lg font-mono text-purple-300 flex items-center">
+            <span class="pulse-ring inline-block w-2 h-2 rounded-full bg-purple-400 mr-3"></span>
+            {{ wipProgress.current_task }}
+          </div>
+        </div>
+
+        <!-- 本輪時間資訊 -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-700/30 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">本輪次</div>
+            <div class="text-sm font-bold text-white">第 {{ wipRound.current_round }} 輪</div>
+          </div>
+          <div class="bg-gray-700/30 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">開始時間</div>
+            <div class="text-sm font-mono text-white">{{ formatTime(wipRound.current_start) }}</div>
+          </div>
+          <div class="bg-gray-700/30 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">結束時間</div>
+            <div class="text-sm font-mono text-white">{{ formatTime(wipRound.current_end) || '執行中...' }}</div>
+          </div>
+          <div class="bg-gray-700/30 rounded-lg p-3">
+            <div class="text-xs text-gray-400 mb-1">執行時長</div>
+            <div class="text-sm font-bold text-purple-400">
+              {{ calculateDuration(wipRound.current_start, wipRound.current_end) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WIP 列表表格 -->
+      <div class="bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-700">
+        <div class="flex items-center justify-between mb-4 cursor-pointer" @click="wipListExpanded = !wipListExpanded">
+          <h3 class="text-xl font-bold text-gray-300 flex items-center">
+            <i data-lucide="list" class="w-6 h-6 mr-2"></i>
+            WIP 任務列表
+          </h3>
+          <button class="p-2 hover:bg-gray-700 rounded-lg transition-colors">
+            <i :data-lucide="wipListExpanded ? 'chevron-up' : 'chevron-down'" class="w-5 h-5 text-gray-400"></i>
+          </button>
+        </div>
+        
+        <transition name="fade">
+          <div v-show="wipListExpanded">
+            <div v-if="Object.keys(wipData).length === 0" class="text-center text-gray-400 py-8">
+              尚未收到 WIP 資料
+            </div>
+            <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div v-for="(item, key) in wipData" :key="`wip-${key}-${item.done}`"
+                   :class="['p-3 rounded-lg border-2 flex flex-col items-center justify-center transition-all',
+                            item.done 
+                            ? 'border-emerald-500 bg-emerald-900/20' 
+                            : 'border-gray-600 bg-gray-800']">
+                <i :data-lucide="item.done ? 'check-circle-2' : 'circle'"
+                   :class="['w-6 h-6 mb-2', item.done ? 'text-emerald-400' : 'text-gray-500']"></i>
+                <span :class="['text-xs text-center font-mono', item.done ? 'text-emerald-300' : 'text-gray-400']">
+                  {{ key }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </transition>
+      </div>
+
+      <!-- 歷史記錄 -->
+      <div v-if="wipRound.history && wipRound.history.length > 0" class="bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-700">
+        <h3 class="text-xl font-bold text-gray-300 mb-4 flex items-center">
+          <i data-lucide="file-text" class="w-6 h-6 mr-2"></i>
+          執行歷史（最近 {{ wipRound.history.length }} 輪）
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-700/50">
+              <tr>
+                <th class="px-4 py-2 text-left text-gray-300">輪次</th>
+                <th class="px-4 py-2 text-left text-gray-300">開始時間</th>
+                <th class="px-4 py-2 text-left text-gray-300">結束時間</th>
+                <th class="px-4 py-2 text-left text-gray-300">執行時長</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(record, idx) in wipRound.history" :key="`wip-history-${idx}`"
+                  class="border-b border-gray-700 hover:bg-gray-700/30 transition-colors">
+                <td class="px-4 py-3 font-bold text-purple-400">第 {{ record.round }} 輪</td>
+                <td class="px-4 py-3 font-mono text-gray-300">{{ formatTime(record.start) }}</td>
+                <td class="px-4 py-3 font-mono text-gray-300">{{ formatTime(record.end) }}</td>
+                <td class="px-4 py-3 font-bold text-pink-400">{{ calculateDuration(record.start, record.end) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+[
+  {
+    "TIME": "2025-04-22",
+    "Plant": "ASEF1",
+    "Site": "K18-5F",
+    "IP": "192.22.158.3",
+    "MachineID": "3390-F22",
+    "Port": 502,
+    "DI_Map": {
+      "RED": 0,
+      "YELLOW": 1,
+      "GREEN": 2
+    }
+  },
+  {
+    "TIME": "2025-04-22",
+    "Plant": "ASEF3",
+    "Site": "K18-5F",
+    "IP": "192.33.66.42",
+    "MachineID": "6690-D63",
+    "Port": 502,
+    "DI_Map": {
+      "RED": 9,
+      "YELLOW": 10,
+      "GREEN": 11
+    }
+  }
+]

@@ -1,0 +1,450 @@
+[
+    {
+        "id": 1,
+        "name": "EAP健康度監控網頁",
+        "url": "http://eap-monitor.internal/dashboard",
+        "icon": "activity",
+        "color": "bg-gradient-to-br from-blue-400 to-indigo-500",
+        "description": "EAP系統健康度監控儀表板",
+        "tags": [
+            "專案",
+            "監控",
+            "EAP"
+        ],
+        "incompletePercentage": 0,
+        "completedTasks": [
+            {
+                "completedBy": "張小明",
+                "completedDate": "2025-09-05",
+                "description": "完成EAP系統基礎監控架構",
+                "title": "基礎監控框架建立"
+            },
+            {
+                "completedBy": "李小華",
+                "completedDate": "2025-09-12",
+                "description": "優化監控資料庫查詢效能",
+                "title": "資料庫連線優化"
+            },
+            {
+                "completedBy": "王大明",
+                "completedDate": "2025-09-18",
+                "description": "完成監控儀表板UI設計",
+                "title": "前端介面設計"
+            },
+            {
+                "completedBy": "詹睿穎",
+                "completedDate": "2025/10/12",
+                "description": "改善系統回應時間與資源使用率監控",
+                "title": "效能指標優化"
+            },
+            {
+                "title": "告警機制調整",
+                "description": "設定更精確的系統健康度告警閾值",
+                "completedDate": "2025/10/13",
+                "completedBy": "詹睿穎"
+            }
+        ],
+        "incompleteTasks": [],
+        "percentage": 0
+    },
+    {
+        "id": 2,
+        "name": "專案管理網頁",
+        "url": "http://project.internal/manager",
+        "icon": "folder-kanban",
+        "color": "bg-gradient-to-br from-purple-400 to-violet-500",
+        "description": "專案進度與資源管理平台",
+        "tags": [
+            "專案",
+            "管理"
+        ],
+        "incompletePercentage": 45,
+        "completedTasks": [
+            {
+                "title": "資源分配儀表板",
+                "description": "建立人力資源分配狀況總覽",
+                "completedDate": "2025/10/12",
+                "completedBy": "詹睿穎"
+            },
+            {
+                "title": "報表匯出功能",
+                "description": "支援Excel與PDF格式專案報表匯出",
+                "completedDate": "2025/10/12",
+                "completedBy": "詹睿穎"
+            }
+        ],
+        "incompleteTasks": [],
+        "percentage": 45
+    },
+    {
+        "id": 3,
+        "name": "困難點會議管理網頁",
+        "url": "http://meeting.internal/issues",
+        "icon": "clipboard-list",
+        "color": "bg-gradient-to-br from-orange-400 to-red-500",
+        "description": "困難點討論與追蹤管理系統",
+        "tags": [
+            "管理",
+            "會議"
+        ],
+        "incompletePercentage": 0,
+        "completedTasks": [
+            {
+                "title": "待辦事項提醒",
+                "description": "整合郵件自動提醒功能",
+                "completedDate": "2025/10/13",
+                "completedBy": "詹睿穎"
+            }
+        ],
+        "incompleteTasks": [],
+        "percentage": 0
+    },
+    {
+        "id": 4,
+        "name": "ePR請購管理網頁",
+        "url": "http://epr.internal/purchase",
+        "icon": "shopping-cart",
+        "color": "bg-gradient-to-br from-green-400 to-emerald-500",
+        "description": "電子請購單管理系統",
+        "tags": [
+            "管理",
+            "請購"
+        ],
+        "incompletePercentage": 67,
+        "completedTasks": [
+            {
+                "completedBy": "詹睿穎",
+                "completedDate": "2025/10/13",
+                "description": "簡化多層級簽核流程與權限設定",
+                "title": "簽核流程優化"
+            }
+        ],
+        "incompleteTasks": [
+            {
+                "description": "新增部門預算額度即時控管",
+                "dueDate": "2025-11-01",
+                "priority": "high",
+                "title": "預算控管功能"
+            },
+            {
+                "description": "串接既有廠商資料庫系統",
+                "dueDate": "2025-10-22",
+                "priority": "medium",
+                "title": "廠商資料庫整合"
+            }
+        ],
+        "percentage": 67
+    },
+    {
+        "id": 5,
+        "name": "報案系統分析網頁",
+        "url": "http://report-analysis.internal/stats",
+        "icon": "file-text",
+        "color": "bg-gradient-to-br from-yellow-400 to-orange-500",
+        "description": "報案數據分析與統計平台",
+        "tags": [
+            "工作",
+            "分析"
+        ],
+        "incompletePercentage": 0,
+        "completedTasks": [
+            {
+                "title": "趨勢分析圖表",
+                "description": "開發報案類型與時間趨勢分析視覺化",
+                "completedDate": "2025/10/13",
+                "completedBy": "詹睿穎"
+            },
+            {
+                "title": "異常警示功能",
+                "description": "建立報案數量異常自動警示機制",
+                "completedDate": "2025/10/13",
+                "completedBy": "詹睿穎"
+            }
+        ],
+        "incompleteTasks": [],
+        "percentage": 0
+    },
+    {
+        "id": 6,
+        "name": "中控室警醒網頁",
+        "url": "http://control-center.internal/monitor",
+        "icon": "monitor-dot",
+        "color": "bg-gradient-to-br from-red-500 to-pink-600",
+        "description": "各站流量監控、機台狀態上拋",
+        "tags": [
+            "工作",
+            "監控",
+            "中控室"
+        ],
+        "incompletePercentage": 65,
+        "completedTasks": 4,
+        "incompleteTasks": [
+            {
+                "title": "即時數據同步",
+                "description": "優化機台狀態即時上拋效能",
+                "dueDate": "2025-11-15",
+                "priority": "high"
+            },
+            {
+                "title": "歷史資料查詢",
+                "description": "建立歷史流量與狀態查詢功能",
+                "dueDate": "2025-11-08",
+                "priority": "medium"
+            },
+            {
+                "title": "異常通知整合",
+                "description": "串接Line與郵件異常通知系統",
+                "dueDate": "2025-11-20",
+                "priority": "high"
+            },
+            {
+                "title": "多螢幕支援",
+                "description": "優化大螢幕與多螢幕顯示介面",
+                "dueDate": "2025-10-25",
+                "priority": "low"
+            }
+        ]
+    },
+    {
+        "id": 7,
+        "name": "MES更新派報",
+        "url": "http://mes.internal/notification",
+        "icon": "bell",
+        "color": "bg-gradient-to-br from-cyan-400 to-blue-500",
+        "description": "MES系統更新通知派報",
+        "tags": [
+            "工作",
+            "MES"
+        ],
+        "incompletePercentage": 15,
+        "completedTasks": 12,
+        "incompleteTasks": [
+            {
+                "title": "通知範本設定",
+                "description": "建立可自訂的更新通知訊息範本",
+                "dueDate": "2025-10-18",
+                "priority": "low"
+            }
+        ]
+    },
+    {
+        "id": 8,
+        "name": "MFGGO派報管理網頁",
+        "url": "http://mfggo.internal/broadcast",
+        "icon": "send",
+        "color": "bg-gradient-to-br from-indigo-400 to-purple-500",
+        "description": "MFGGO訊息派報管理系統",
+        "tags": [
+            "派報",
+            "管理"
+        ],
+        "incompletePercentage": 40,
+        "completedTasks": 7,
+        "incompleteTasks": [
+            {
+                "title": "排程派報功能",
+                "description": "開發可預約排程的自動派報功能",
+                "dueDate": "2025-11-12",
+                "priority": "high"
+            },
+            {
+                "title": "派報紀錄查詢",
+                "description": "建立派報歷史紀錄與狀態追蹤",
+                "dueDate": "2025-10-28",
+                "priority": "medium"
+            },
+            {
+                "title": "收件者群組管理",
+                "description": "新增收件者群組建立與管理功能",
+                "dueDate": "2025-10-20",
+                "priority": "medium"
+            }
+        ]
+    },
+    {
+        "id": 9,
+        "name": "Mail派報管理網頁",
+        "url": "http://mail-broadcast.internal/admin",
+        "icon": "mail",
+        "color": "bg-gradient-to-br from-pink-400 to-rose-500",
+        "description": "郵件派報管理與追蹤系統",
+        "tags": [
+            "派報",
+            "郵件"
+        ],
+        "incompletePercentage": 25,
+        "completedTasks": 10,
+        "incompleteTasks": [
+            {
+                "title": "HTML郵件編輯器",
+                "description": "整合視覺化HTML郵件內容編輯器",
+                "dueDate": "2025-10-22",
+                "priority": "medium"
+            },
+            {
+                "title": "開信率統計",
+                "description": "新增郵件開信率與點擊率追蹤功能",
+                "dueDate": "2025-11-05",
+                "priority": "low"
+            }
+        ]
+    },
+    {
+        "id": 10,
+        "name": "三色燈即時監控面板",
+        "url": "http://signal-light.internal/realtime",
+        "icon": "traffic-cone",
+        "color": "bg-gradient-to-br from-teal-400 to-cyan-500",
+        "description": "機台三色燈狀態即時監控",
+        "tags": [
+            "監控",
+            "三色燈"
+        ],
+        "incompletePercentage": 50,
+        "completedTasks": 6,
+        "incompleteTasks": [
+            {
+                "title": "WebSocket即時更新",
+                "description": "改用WebSocket提升狀態更新即時性",
+                "dueDate": "2025-11-18",
+                "priority": "high"
+            },
+            {
+                "title": "燈號歷史紀錄",
+                "description": "建立機台燈號變化歷史紀錄功能",
+                "dueDate": "2025-11-10",
+                "priority": "medium"
+            },
+            {
+                "title": "聲音警示功能",
+                "description": "異常狀態時播放警示音效",
+                "dueDate": "2025-10-30",
+                "priority": "low"
+            }
+        ]
+    },
+    {
+        "id": 11,
+        "name": "工作進度",
+        "url": "http://task-tracker.internal/progress",
+        "icon": "list-checks",
+        "color": "bg-gradient-to-br from-amber-400 to-yellow-500",
+        "description": "個人工作進度追蹤管理",
+        "tags": [
+            "公車私用",
+            "進度"
+        ],
+        "incompletePercentage": 0,
+        "completedTasks": [
+            {
+                "title": "週報自動產生",
+                "description": "根據每日紀錄自動產生週報功能",
+                "completedDate": "2025/10/13",
+                "completedBy": "詹睿穎"
+            }
+        ],
+        "incompleteTasks": [],
+        "percentage": 0
+    },
+    {
+        "id": 12,
+        "name": "後端三色燈監控API說明介面",
+        "url": "http://api-docs.internal/signal-light",
+        "icon": "code-2",
+        "color": "bg-gradient-to-br from-slate-500 to-gray-700",
+        "description": "三色燈監控後端API文件",
+        "tags": [
+            "API",
+            "文件"
+        ],
+        "incompletePercentage": 50,
+        "completedTasks": [
+            {
+                "title": "Swagger文件更新",
+                "description": "更新API Swagger互動式文件",
+                "completedDate": "2025/10/13",
+                "completedBy": "詹睿穎"
+            }
+        ],
+        "incompleteTasks": [
+            {
+                "description": "新增各語言API呼叫範例程式碼",
+                "dueDate": "2025-10-24",
+                "priority": "low",
+                "title": "使用範例補充"
+            }
+        ],
+        "percentage": 50
+    },
+    {
+        "id": 13,
+        "name": "後端ASEGO訊息備份API說明介面",
+        "url": "http://api-docs.internal/asego-backup",
+        "icon": "database",
+        "color": "bg-gradient-to-br from-emerald-500 to-teal-600",
+        "description": "ASEGO訊息備份後端API文件",
+        "tags": [
+            "API",
+            "備份"
+        ],
+        "incompletePercentage": 35,
+        "completedTasks": 8,
+        "incompleteTasks": [
+            {
+                "title": "API版本控制說明",
+                "description": "補充API版本更新與相容性說明",
+                "dueDate": "2025-11-02",
+                "priority": "medium"
+            },
+            {
+                "title": "錯誤代碼文件",
+                "description": "整理完整的錯誤代碼對照表",
+                "dueDate": "2025-10-19",
+                "priority": "medium"
+            }
+        ]
+    },
+    {
+        "id": 14,
+        "name": "CIM機台履歷",
+        "url": "http://cim.internal/machine-history",
+        "icon": "history",
+        "color": "bg-gradient-to-br from-violet-400 to-purple-600",
+        "description": "CIM機台操作履歷查詢系統",
+        "tags": [
+            "工作",
+            "CIM",
+            "履歷"
+        ],
+        "incompletePercentage": 75,
+        "completedTasks": [
+            {
+                "title": "進階搜尋功能",
+                "description": "開發多條件組合查詢與篩選功能",
+                "completedDate": "2025/10/13",
+                "completedBy": "詹睿穎"
+            }
+        ],
+        "incompleteTasks": [
+            {
+                "description": "支援查詢結果匯出Excel報表",
+                "dueDate": "2025-11-15",
+                "priority": "medium",
+                "title": "履歷匯出功能"
+            },
+            {
+                "description": "以時間軸方式呈現機台操作歷程",
+                "dueDate": "2025-12-01",
+                "priority": "high",
+                "title": "操作時間軸視覺化"
+            },
+            {
+                "description": "自動標示異常操作紀錄與原因分析",
+                "dueDate": "2025-11-20",
+                "priority": "medium",
+                "title": "異常操作標記"
+            }
+        ],
+        "percentage": 75
+    }
+]

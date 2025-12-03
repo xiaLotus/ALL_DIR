@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>已完成事項 - FT01 資訊管理組</title>
+    <script src="../static/js/package/tailwindcss.js"></script>
+    <script src="../static/js/package/vue.global.js"></script>
+    <script src="../static/js/package/lucide.js"></script>
+    <script src="../static/js/session-checker.js"></script>
+    <style>
+        @font-face {
+            font-family: 'Iansui';
+            src: url('../static/fonts/Iansui-Regular.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        body {
+            font-family: 'Iansui', 'Noto Sans TC', sans-serif;
+        }
+
+        /* 讓 Tailwind 能夠辨識 'dark' 這個 class */
+        .dark .dark-mode-bg {
+            background: linear-gradient(to bottom right, #1a1a2e, #16213e, #0f3460 );
+        }
+    </style>
+</head>
+<body class="min-h-screen transition-colors duration-300 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+    <div id="app">
+        <!-- 頂部導航 -->
+        <div 
+            class="backdrop-blur-md shadow-lg sticky top-0 z-50 border-b transition-colors duration-300"
+            :class="isDarkMode ? 'bg-[rgba(30,30,30,0.8)] border-[rgba(74,222,128,0.3)]' : 'bg-white/80 border-green-100'"
+        >
+            <div class="container mx-auto px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-6">
+                        <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <i data-lucide="check-circle-2" class="w-7 h-7 text-white"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">FT01 資訊管理組</h1>
+                            <p 
+                                class="text-sm transition-colors duration-300"
+                                :class="isDarkMode ? 'text-gray-400' : 'text-gray-600'"
+                            >已完成事項管理</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <!-- 顯示當前用戶身份 -->
+                        <div 
+                            class="text-sm transition-colors duration-300"
+                            :class="isDarkMode ? 'text-gray-400' : 'text-gray-600'"
+                        >
+                            <span 
+                                class="font-medium"
+                                :class="isDarkMode ? 'text-gray-200' : 'text-gray-700'"
+                            >{{ username }}</span>
+                            <span 
+                                class="ml-2 px-2 py-1 rounded-full text-xs" 
+                                :class="getRoleBadgeClass()"
+                            >
+                                {{ role }}
+                            </span>
+                        </div>
+                        <div 
+                            class="text-sm transition-colors duration-300"
+                            :class="isDarkMode ? 'text-gray-500' : 'text-gray-500'"
+                        >
+                            {{ currentTime.toLocaleString('zh-TW') }}
+                        </div>
+                        <!-- 暗色模式切換按鈕 -->
+                        <button @click="toggleDarkMode" class="ml-2 w-10 h-10 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 flex items-center justify-center transition-all duration-300 shadow-lg group">
+                            <i :data-lucide="isDarkMode ? 'sun' : 'moon'" class="w-5 h-5 text-white group-hover:rotate-12 transition-transform"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="container mx-auto px-6 py-8">
+            <!-- 載入中狀態 -->
+            <div v-if="loading" class="text-center py-16">
+                <div class="animate-spin w-12 h-12 border-4 border-green-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p :class="isDarkMode ? 'text-gray-400' : 'text-gray-600'">載入中...</p>
+            </div>
+
+            <!-- 網站資訊卡片 -->
+            <div v-else-if="websiteData" class="max-w-4xl mx-auto">
+                <!-- 網站標題區 -->
+                <div 
+                    class="backdrop-blur-sm rounded-3xl p-8 shadow-lg border transition-colors duration-300 mb-8"
+                    :class="isDarkMode ? 'bg-[rgba(30,30,30,0.7)] border-[rgba(74,222,128,0.3)]' : 'bg-white/70 border-green-100'"
+                >
+                    <div class="flex items-center gap-6">
+                        <div :class="websiteData.color" class="w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg">
+                            <i :data-lucide="websiteData.icon" class="w-10 h-10 text-white"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h2 
+                                class="text-3xl font-bold mb-2 transition-colors duration-300"
+                                :class="isDarkMode ? 'text-gray-200' : 'text-gray-800'"
+                            >{{ websiteData.name }}</h2>
+                            <p 
+                                class="mb-4 transition-colors duration-300"
+                                :class="isDarkMode ? 'text-gray-400' : 'text-gray-600'"
+                            >{{ websiteData.description }}</p>
+                            <div class="flex items-center gap-4">
+                                <span 
+                                    class="px-3 py-1 text-sm rounded-full border font-medium"
+                                    :class="isDarkMode ? 'bg-green-900/50 text-green-300 border-green-700/50' : 'bg-green-100 text-green-700 border-green-200'"
+                                >
+                                    已完成 {{ completedTasksCount }} 項任務
+                                </span>
+                                <span 
+                                    class="px-3 py-1 text-sm rounded-full border font-medium"
+                                    :class="isDarkMode ? 'bg-blue-900/50 text-blue-300 border-blue-700/50' : 'bg-blue-100 text-blue-700 border-blue-200'"
+                                >
+                                    完成度 {{ 100 - websiteData.incompletePercentage }}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 已完成任務列表 -->
+                <div 
+                    class="backdrop-blur-sm rounded-3xl p-8 shadow-lg border transition-colors duration-300"
+                    :class="isDarkMode ? 'bg-[rgba(30,30,30,0.7)] border-[rgba(74,222,128,0.3)]' : 'bg-white/70 border-green-100'"
+                >
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+                            <h3 
+                                class="text-2xl font-bold transition-colors duration-300"
+                                :class="isDarkMode ? 'text-gray-200' : 'text-gray-800'"
+                            >已完成任務</h3>
+                        </div>
+                        <button 
+                            v-if="isEditor"
+                            @click="openAddTaskModal"
+                            class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-lg hover:from-green-500 hover:to-emerald-600 transition-all duration-300 text-sm font-medium shadow-lg"
+                        >
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            新增已完成事項
+                        </button>
+                    </div>
+
+                    <!-- 無已完成任務 -->
+                    <div v-if="!websiteData.completedTasks || completedTasksCount === 0" class="text-center py-12">
+                        <i data-lucide="inbox" class="w-16 h-16 text-gray-400/50 mx-auto mb-4"></i>
+                        <p :class="isDarkMode ? 'text-gray-500' : 'text-gray-500'">目前沒有已完成的任務</p>
+                    </div>
+
+                    <!-- 已完成任務卡片 -->
+                    <div v-else class="space-y-4">
+                        <div 
+                            v-for="task in reversedCompletedTasks" 
+                            :key="task.id" 
+                            class="rounded-2xl p-6 border-2 hover:shadow-md transition-all duration-300"
+                            :class="isDarkMode ? 'bg-[rgba(40,50,40,0.7)] border-[rgba(74,222,128,0.4)]' : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'"
+                        >
+                            <div class="flex gap-4">
+                                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                                    <i data-lucide="check" class="w-5 h-5 text-white"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 
+                                        class="text-lg font-semibold mb-2 transition-colors duration-300"
+                                        :class="isDarkMode ? 'text-gray-200' : 'text-gray-800'"
+                                    >{{ task.title }}</h4>
+                                    <p 
+                                        class="mb-4 whitespace-pre-line transition-colors duration-300"
+                                        :class="isDarkMode ? 'text-gray-400' : 'text-gray-600'"
+                                        v-html="formatDescription(task.description)"
+                                    ></p>
+                                    <div 
+                                        class="flex items-center gap-6 text-sm"
+                                        :class="isDarkMode ? 'text-gray-500' : 'text-gray-500'"
+                                    >
+                                        <span class="flex items-center gap-1">
+                                            <i data-lucide="calendar-check" class="w-4 h-4"></i>
+                                            完成日期: {{ task.completedDate }}
+                                        </span>
+                                        <span class="flex items-center gap-1">
+                                            <i data-lucide="user" class="w-4 h-4"></i>
+                                            {{ task.completedBy }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <!-- ✅ 只有編輯者才能看到編輯和刪除按鈕 -->
+                                <div v-if="isEditor" class="flex flex-col gap-2">
+                                    <button 
+                                        @click="openEditTaskModal(task)"
+                                        class="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                                    >
+                                        編輯
+                                    </button>
+                                    <button 
+                                        @click="deleteTask(task.id)"
+                                        class="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                                    >
+                                        刪除
+                                    </button>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <span 
+                                        class="px-3 py-1 text-xs font-medium rounded-full"
+                                        :class="isDarkMode ? 'bg-green-900/70 text-green-300' : 'bg-green-200 text-green-800'"
+                                    >
+                                        已完成
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作按鈕 -->
+                <div class="flex gap-4 mt-8">
+                    <button
+                        @click="goBack"
+                        class="flex-1 py-3 rounded-xl transition-colors duration-300 font-medium flex items-center justify-center gap-2"
+                        :class="isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                    >
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                        返回
+                    </button>
+                    <button
+                        @click="viewIncomplete"
+                        class="flex-1 bg-gradient-to-r from-orange-400 to-red-400 text-white py-3 rounded-xl hover:from-orange-500 hover:to-red-500 transition-all duration-300 font-medium flex items-center justify-center gap-2"
+                    >
+                        <i data-lucide="alert-circle" class="w-5 h-5"></i>
+                        查看未完成事項
+                    </button>
+                </div>
+            </div>
+
+            <!-- 錯誤狀態 -->
+            <div v-else class="text-center py-16">
+                <i data-lucide="alert-triangle" class="w-16 h-16 text-red-400 mx-auto mb-4"></i>
+                <p 
+                    class="mb-4"
+                    :class="isDarkMode ? 'text-gray-400' : 'text-gray-600'"
+                >無法載入資料</p>
+                <button 
+                    @click="goBack"
+                    class="px-6 py-2 rounded-lg transition-colors"
+                    :class="isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                >
+                    返回首頁
+                </button>
+            </div>
+        </div>
+
+        <!-- 新增/編輯任務模態框 -->
+        <div v-if="showTaskModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div 
+                class="rounded-2xl p-8 w-full max-w-md shadow-2xl transition-colors duration-300"
+                :class="isDarkMode ? 'bg-[rgba(30,30,30,0.95)]' : 'bg-white'"
+            >
+                <div class="flex items-center justify-between mb-6">
+                    <h2 
+                        class="text-2xl font-bold"
+                        :class="isDarkMode ? 'text-gray-200' : 'text-gray-800'"
+                    >{{ isEditMode ? '編輯' : '新增' }}已完成事項</h2>
+                    <button 
+                        @click="closeTaskModal" 
+                        :class="isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'"
+                    >
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label 
+                            class="block text-sm font-medium mb-2"
+                            :class="isDarkMode ? 'text-gray-400' : 'text-gray-700'"
+                        >任務標題</label>
+                        <input 
+                            type="text" 
+                            v-model="currentTask.title" 
+                            placeholder="輸入任務標題"
+                            class="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400"
+                            :class="isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'border-gray-200'"
+                        />
+                    </div>
+                    <div>
+                        <label 
+                            class="block text-sm font-medium mb-2"
+                            :class="isDarkMode ? 'text-gray-400' : 'text-gray-700'"
+                        >任務描述</label>
+                        <textarea 
+                            v-model="currentTask.description" 
+                            placeholder="輸入任務詳細描述"
+                            rows="4"
+                            class="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400"
+                            :class="isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'border-gray-200'"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label 
+                            class="block text-sm font-medium mb-2"
+                            :class="isDarkMode ? 'text-gray-400' : 'text-gray-700'"
+                        >完成日期</label>
+                        <input 
+                            type="text" 
+                            v-model="currentTask.completedDate"
+                            placeholder="YYYY/MM/DD (例如:2025/01/15)"
+                            class="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400"
+                            :class="isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'border-gray-200'"
+                        />
+                        <p 
+                            class="text-xs mt-1"
+                            :class="isDarkMode ? 'text-gray-500' : 'text-gray-500'"
+                        >請使用 YYYY/MM/DD 格式</p>
+                    </div>
+                    <div>
+                        <label 
+                            class="block text-sm font-medium mb-2"
+                            :class="isDarkMode ? 'text-gray-400' : 'text-gray-700'"
+                        >完成人員</label>
+                        <input 
+                            type="text" 
+                            v-model="currentTask.completedBy"
+                            placeholder="輸入完成人員姓名"
+                            class="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400"
+                            :class="isDarkMode ? 'bg-gray-800 border-gray-600 text-white' : 'border-gray-200'"
+                        />
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-8">
+                    <button 
+                        @click="saveTask"
+                        :disabled="!currentTask.title || !currentTask.description"
+                        class="flex-1 bg-gradient-to-r from-green-400 to-emerald-500 text-white py-3 rounded-xl hover:from-green-500 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-medium"
+                    >
+                        {{ isEditMode ? '保存' : '新增' }}
+                    </button>
+                    <button 
+                        @click="closeTaskModal"
+                        class="flex-1 py-3 rounded-xl transition-colors duration-300 font-medium"
+                        :class="isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                    >
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/js/completed_tasks.js"></script>
+</body>
+</html>

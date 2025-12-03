@@ -1,0 +1,22 @@
+﻿{
+  "username": "K03987",
+  "filter_state": {
+    "checkedDates": [],
+    "checkedBuildings": [],
+    "checkedFloors": [],
+    "checkedStations": [],
+    "checkedCategories": [],
+    "checkedProposers": [],
+    "checkedDescriptions": [],
+    "checkedCaseCategories": [],
+    "checkedStatus": [
+      "Reject",
+      "New"
+    ],
+    "checkedPDCA": [],
+    "checkedProjectOwners": [],
+    "checkedDueDates": [],
+    "checkedItemDueDates": []
+  },
+  "last_updated": "2025-11-14T09:20:03.408987"
+}

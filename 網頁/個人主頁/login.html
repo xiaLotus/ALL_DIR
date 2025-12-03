@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>登入 - 自動化管理平台</title>
+  <script src="https://unpkg.com/vue@3"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(to bottom, #f7f9fb, #e1ecf9);
+    }
+
+    h1, p {
+      opacity: 0;
+      transform: translateY(50px);
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    canvas {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      z-index: 0;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center text-gray-800 relative overflow-hidden">
+
+  <canvas id="anime-background" width="1920" height="200" class="w-full h-40 pointer-events-none"></canvas>
+
+  <div class="z-10 relative flex flex-col items-center text-center space-y-6">
+
+    <div class="text-center text-gray-600 space-y-2">
+      <div class="text-3xl font-bold text-gray-700 tracking-wide">RuiYing 專案入口</div>
+      <p class="text-sm leading-relaxed">
+        FT01 2000~3000 內部網頁專供<br>
+        用於各式自動化、管理、紀錄與頁面放置
+      </p>
+    </div>
+
+    <!-- 登入卡片 -->
+    <div id="app" class="w-full max-w-sm p-8 rounded-xl shadow-xl glass text-white">
+      <div class="flex justify-center mb-4">
+        <img src="https://cdn-icons-png.flaticon.com/512/4712/4712107.png" class="w-20 h-20" alt="automation-bot">
+      </div>
+      <h2 class="text-center text-2xl font-bold mb-6 text-gray-800">🔧 自動化管理平台</h2>
+
+      <div class="space-y-4">
+        <input
+          v-model="username"
+          @keyup.enter="login"
+          class="w-full px-4 py-2 rounded bg-white bg-opacity-70 text-gray-900 placeholder-gray-500 focus:outline-none"
+          placeholder="請輸入使用者名稱"
+          autofocus
+        >
+        <button
+          @click="login"
+          class="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded transition"
+        >
+          登入系統
+        </button>
+      </div>
+
+      <p v-if="loginError" class="mt-4 text-center text-red-200 text-sm">⚠️ 請輸入有效的使用者名稱</p>
+    </div>
+  </div>
+  <script src="static/js/login.js"></script>
+  <script src="static/js/introAnimation.js"></script>
+  <script src="static/js/bubbleCanvas.js"></script>
+</body>
+</html>

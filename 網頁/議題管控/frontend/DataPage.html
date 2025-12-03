@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>每週案件統計 - 科技感版</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script> 
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #f1f5f9;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      width: 3rem;
+      height: 3rem;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+    
+    .fade-out {
+      animation: fadeOut 1s forwards;
+    }
+    @keyframes fadeOut {
+      to {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+    }
+    @keyframes rotate45 {
+      to { transform: rotate(45deg); }
+    }
+    @keyframes rotate0 {
+      to { transform: rotate(0deg); }
+    }
+  </style>
+</head>
+
+<body>
+<div id="app" class="min-h-screen p-6 flex flex-col gap-6 relative">
+
+  <h1 class="text-3xl font-bold text-center">📊 每週案件統計 Dashboard</h1>
+
+  <div class="bg-white/10 backdrop-blur-md rounded-xl p-6 shadow-lg flex flex-col gap-8">
+
+    <!-- 第一張圖表區（含小標題） -->
+    <div class="flex flex-col gap-4">
+      <h2 class="text-2xl font-bold text-center text-cyan-300">✅ 每週案件完成統計</h2>
+      <div id="chartWrapper" class="relative w-full" style="height:720px;">
+        <canvas id="caseChart" class="absolute top-0 left-0 w-full h-full z-0"></canvas>
+        <div v-if="isLoading" class="absolute inset-0 flex flex-col justify-center items-center bg-black/30 rounded-xl z-20 space-y-4">
+          <!-- <div class="spinner animate-pulse"></div> -->
+          <!-- <div class="text-cyan-300 text-lg font-semibold animate-pulse">加載中...</div> -->
+        </div>
+      </div>
+    </div>
+  
+    <!-- 第二張圖表區（含小標題） -->
+    <div class="flex flex-col gap-4">
+      <h2 class="text-2xl font-bold text-center text-emerald-300">📈 每週工作累積概況</h2>
+      <div id="secondChartWrapper" class="relative w-full" style="height:720px;">
+        <canvas id="weeklyWorkChart" class="absolute top-0 left-0 w-full h-full z-0"></canvas>
+      </div>
+    </div>
+  
+  </div>
+
+<!-- 懸浮控制按鈕 -->
+<div class="fixed bottom-6 right-6 flex flex-col items-end z-50 space-y-2">
+  
+  <!-- 卡片（改成上下排列的按鈕） -->
+  <div v-show="showCard" class="bg-gradient-to-br from-cyan-600/30 to-slate-700/30 backdrop-blur-md rounded-xl p-4 shadow-lg animate-fadeIn">
+    <div class="flex flex-col space-y-3">
+      <button @click="loadData" :disabled="isLoading"
+        class="w-40 px-4 py-2 text-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow disabled:opacity-50 disabled:cursor-not-allowed">
+        {{ isLoading ? '載入中...' : '重新載入資料' }}
+      </button>
+      <button @click="checkDelayData"
+        class="w-40 px-4 py-2 text-lg bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow">
+        Delay Detail
+      </button>
+      <button @click="goDetailPage"
+        class="w-40 px-4 py-2 text-lg bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-lg shadow">
+        查看細項
+      </button>
+    </div>
+  </div>
+
+  <!-- 主控開關按鈕 -->
+  <button @click="toggleCard"
+    class="w-16 h-16 rounded-full bg-cyan-500 hover:bg-cyan-600 flex items-center justify-center shadow-lg transition-transform duration-300">
+    <span :class="showCard ? 'transform rotate-45 text-2xl font-bold' : 'text-2xl font-bold'">點我</span>
+  </button>
+
+</div>
+
+  <!-- 🔥 跳轉特效遮罩 -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex flex-col justify-center items-center z-50 hidden space-y-4">
+    <div class="border-4 border-t-transparent border-cyan-400 rounded-full w-12 h-12 animate-spin"></div>
+    <div id="loadingText" class="text-cyan-300 text-xl font-semibold tracking-wider animate-pulse">
+      加載中
+    </div>
+  </div>
+
+
+
+  <!-- 🔥 滑動提示卡片 -->
+  <div v-if="scrollHint" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-40">
+    <div class="px-4 py-2 bg-cyan-500/90 text-white rounded-full shadow-lg animate-bounce"
+      @click="scrollToTop"
+      @dblclick="hideHint"
+      @mouseover="showTooltip = true"
+      @mouseleave="showTooltip = false"
+      >
+      {{ scrollHint }}
+        <!-- 小提示卡片 -->
+        <div v-if="showTooltip"
+          class="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-white text-gray-800 text-xs font-semibold px-3 py-1 rounded-lg shadow-md whitespace-nowrap animate-fadeIn z-50">
+          ✨ 雙擊可隱藏
+        </div>
+    </div>
+  </div>
+
+  
+</div>
+
+<script src="../static/js/datapage.js"></script>
+</body>
+</html>

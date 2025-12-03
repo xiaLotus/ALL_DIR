@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <title>登入檢查中...</title>
+
+    <!-- Tailwind -->
+    <script src="static/js/tailwindcss.js"></script>
+
+    <!-- Vue 3 -->
+    <script src="static/js/vue.global.js"></script>
+
+    <!-- SweetAlert2 -->
+    <script src="static/js/sweetalert2@11.js"></script>
+
+    <!-- Lucide icons -->
+    <script src="static/js/lucide.js"></script>
+
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+
+<div id="app">
+    <div class="w-full flex flex-col items-center justify-center text-center select-none">
+
+        <!-- 圓形 loading 動畫 -->
+        <div class="relative w-20 h-20 mb-6">
+          <div class="absolute inset-0 rounded-full border-4 border-gray-300"></div>
+          <div class="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
+        </div>
+
+        <!-- 主標題 -->
+        <h1 class="text-2xl font-bold text-gray-700 mb-2">
+          即將進行跳轉
+        </h1>
+
+        <!-- 副標題 -->
+        <p class="text-gray-500 text-base mb-4 animate-pulse">
+          正在準備您的使用環境…
+        </p>
+
+        <!-- 小提示 -->
+        <div class="flex items-center gap-2 text-gray-600 text-sm mt-2">
+          <i data-lucide="loader" class="w-4 h-4 animate-spin"></i>
+          <span>請稍候片刻</span>
+        </div>
+
+    </div>
+</div>
+
+<script>
+const apiCheckUser = "http://10.11.104.247:8089/api/check_user";   // 工號驗證
+const dashboardUrl = "http://10.11.104.247:5002/dashboard";       // 目標頁面
+
+const app = Vue.createApp({
+    data() {
+        return {
+            user: null,
+        };
+    },
+
+    async mounted() {
+        // 初始化 icons
+        this.$nextTick(() => {
+            if (typeof lucide !== "undefined") lucide.createIcons();
+        });
+
+        // 讀取 SmartAgent 塞的 loggedUser
+        this.user = localStorage.getItem("loggedUser");
+
+        if (!this.user) {
+            Swal.fire({
+                icon: "error",
+                title: "無法取得使用者帳號",
+                text: "請重新登入 Windows 帳號後再試。",
+                confirmButtonColor: "#d33"
+            });
+            return;
+        }
+
+        // Step 1：查工號是否存在於 emoinfo.json
+        let check;
+        try {
+            const res = await fetch(`${apiCheckUser}?user=${this.user}`);
+            check = await res.json();
+        } catch (err) {
+            return this.errorJump(
+                "後端 API 無法連線",
+                `無法連線至驗證伺服器<br>請確認網路或找 <b>K22920</b> 協助（但他可能也不知道 😄）`
+            );
+        }
+
+        // 無權限 → 退回 myasex
+        if (check.status !== "ok") {
+            return this.errorJump(
+                "此帳號無法登入此網域",
+                `工號：${this.user}<br>如需協助請找 <b>K22920</b>（但他可能也不知道 😄）`
+            );
+        }
+
+        // ⭐ Step 2：成功 → 寫入 localStorage (不登入後端)
+        localStorage.setItem("username", this.user);
+        localStorage.setItem("loggedUser", this.user);
+
+        // ⭐ Step 3：固定 2 秒後跳轉 dashboard
+        const encodedUser = encodeURIComponent(this.user);
+        const targetUrl = `${dashboardUrl}?user=${encodedUser}`;
+
+        setTimeout(() => {
+            window.location.replace(targetUrl);
+
+            // Edge fallback
+            setTimeout(() => {
+                window.location.href = targetUrl;
+            }, 300);
+
+            // 保底刷新
+            document.head.insertAdjacentHTML(
+                "beforeend",
+                `<meta http-equiv="refresh" content="1; url=${targetUrl}">`
+            );
+        }, 2000);
+    },
+
+    methods: {
+        // Swal + 自動跳轉 myasex
+        errorJump(title, html) {
+            Swal.fire({
+                icon: "error",
+                title,
+                html: `${html}<br><span class="text-red-600 text-sm">2 秒後將自動跳轉首頁…</span>`,
+                confirmButtonColor: "#d33",
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    setTimeout(() => {
+                        window.location.href = "https://myasex.kh.asegroup.com";
+                    }, 2000);
+                }
+            });
+        }
+    }
+});
+
+app.mount("#app");
+</script>
+
+</body>
+</html>

@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>專案細項</title>
+    <script src="../static/js/tailwinds.js"></script>
+    <script src="../static/js/vue.global.js"></script>
+    <script src="../static/js/axios.min.js"></script>
+    <script src="../static/js/Sortable.min.js"></script>
+    <script src="../static/js/vuedraggable.umd.min.js"></script>
+    <script src="../static/js/Element_Plus_Icons_Vue.js"></script>
+    <link rel="stylesheet" href="../static/css/element-plus-index.css" />
+    <script src="../static/js/Element_Plus.js"></script>
+    <link rel="stylesheet" href="../static/css/proposals.css"></style>
+</head>
+<body class="bg-[#47474A] opacity-0 transition-opacity duration-700">
+
+<div id="app" class="mx-auto">
+  <!-- Loading 畫面 -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999]">
+    <div class="flex flex-col items-center space-y-4">
+      <div class="w-12 h-12 border-4 border-t-transparent border-white rounded-full animate-spin"></div>
+      <div class="text-white text-lg font-bold tracking-wide">
+        加載中<span>{{ loadingDots }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 上層按鈕區塊 -->
+  <div class="flex items-center justify-between my-4 px-4">
+    <!-- 返回按鈕 -->
+    <button 
+      @click="returnSecondPage"
+      class="px-4 py-2 bg-blue-500 text-white rounded shadow-md hover:bg-blue-600 transition">
+      返回
+    </button>
+
+    <!-- 標題 -->
+    <h1 class="text-3xl font-semibold text-[#D3D3D3]">
+      專案 Key In
+    </h1>
+
+    <!-- 右側重置按鈕 -->
+    <button 
+      @click="resetAllFilters('NoneData')" 
+      class="px-4 py-2 bg-red-500 text-white rounded shadow-md hover:bg-red-600 transition items-center">
+        全部重置
+    </button>
+  </div>
+    
+    
+  <!-- 表格容器 -->
+  <div class="border border-gray-300 shadow-md relative w-full max-w-screen mx-auto">
+    <div class="table-container overflow-y-auto">
+      <table class="w-full bg-white">
+        <!-- 表頭 -->
+        <thead class="bg-gray-200 text-gray-600 text-sm sticky top-0">
+          <tr>
+            <th v-for="key in columnOrder" :key="key"
+              class="text-center bg-[#5F7EAF] border border-white cursor-pointer relative white-space: nowrap;"
+              @click="key === '提案日期' ? toggleSortOrder('提案日期') : key === '距截止日' ? toggleSortOrder('距截止日') :  toggleDropdown(key, $event)">
+              <span class="flex items-center justify-center">
+                <span v-if="key === '總表項次'" class="px-2 py-1 bg-[#5F7EAF] whitespace-nowrap text-white text-lg">
+                  總表<br>項次
+                </span>                          
+                <span v-else-if="key === '案件分類'" class="px-2 py-1 bg-[#5F7EAF] whitespace-nowrap text-white text-lg">
+                  案件<br>分類
+                </span>
+                <span v-else-if="key === 'StatusOwner'" class="px-2 py-1 bg-[#5F7EAF] whitespace-nowrap text-white text-lg">
+                  專案<br>Owner
+                </span>
+                <!-- <span v-else-if="key === 'Owner部門'" class="px-2 py-1 bg-[#5F7EAF] whitespace-nowrap text-white text-lg">
+                  Owner<br>部門
+                </span> -->
+                <span v-else-if="key === 'Due'" class="px-2 py-1 bg-[#5F7EAF] whitespace-nowrap text-white text-lg">
+                  專案<br>Due Date
+                </span>
+                <span v-else-if="key === '後端確認'" class="px-2 py-1 bg-[#5F7EAF] whitespace-nowrap text-white text-lg">
+                  Status
+                </span>
+                <span v-else class="px-2 py-1 bg-[#5F7EAF] whitespace-nowrap text-white text-lg">
+                  {{ key }}
+                </span>
+                <span v-if="key === '提案日期'" 
+                  class="px-1 py-0.5 bg-[#5F7EAF] rounded text-white text-xl font-bold transition-all duration-300"
+                  :class="{
+                    'bg-green-500': sortOrder === 'asc',
+                    'bg-red-500': sortOrder === 'desc',
+                    'bg-gray-400 opacity-50': sortOrder === null
+                  }">
+                  {{ sortOrderField === '提案日期' && sortOrder === 'asc' ? '▲' : sortOrderField === '提案日期' && sortOrder === 'desc' ? '▼' : '↕' }}
+                </span>
+                <span v-if="key === '距截止日'" 
+                  class="px-1 py-0.5 bg-[#5F7EAF] rounded text-white text-xl font-bold transition-all duration-300"
+                  :class="{
+                    'bg-green-500': sortOrder === 'asc',
+                    'bg-red-500': sortOrder === 'desc',
+                    'bg-gray-400 opacity-50': sortOrder === null
+                  }">
+                  {{ sortOrderField === '距截止日' && sortOrder === 'asc' ? '▲' : sortOrderField === '距截止日' && sortOrder === 'desc' ? '▼' : '↕' }}
+                </span>
+              </span>
+            </th>
+            <th class="px-2 py-1 bg-[#5F7EAF] whitespace-nowrap border border-white text-white text-lg text-center">查看</th>
+          </tr>
+        </thead>
+            
+        <!-- 表格內容 -->
+        <tbody class="text-gray-700">
+          <tr v-for="proposal in sortedProposals" :key="proposal['總表項次']"
+            :class="{
+              'bg-gray-200': proposal['後端確認'] === 'Done',
+              'bg-yellow-200': proposal['後端確認'] === 'Pending',
+              'bg-white': proposal['後端確認'] === 'On Going'
+            }">
+            <td class="px-0.8 py-1 border border-gray-300 text-center"
+              v-for="key in columnOrder" :key="key">
+              <div v-if="key === '距今'" class="overflow-visible p-1 text-left whitespace-nowrap border-gray-300 text-center">
+                <span>{{ calculateUpdateDaysAgo(proposal['提案日期']) }}天</span>
+              </div>
+              <div v-else-if="key === '問題描述'" class="overflow-visible p-1 text-left border-gray-300">
+                 <span v-text="splitDescription(proposal[key])"></span>
+              </div>
+              <div v-else-if="key === '距截止日'" class="overflow-visible p-1 text-left whitespace-nowrap border-gray-300 text-center">
+                <span :class="{
+                  'text-red-500 font-bold': calculateDueDays(proposal['後端確認'], proposal['Due']) < 0
+                  }">
+                   {{ calculateDueDays(proposal['後端確認'], proposal['Due']) }}天
+                </span>
+              </div>
+              <div v-else-if="key === '進度紀錄'" 
+                class="overflow-visible p-1 text-left border-gray-300">
+                <span v-text="getLastRemark(proposal[key])"></span>
+              </div>                                                        
+              <span v-else class="whitespace-nowrap p-1 text-center">{{ proposal[key] }}</span>
+            </td>
+            <!-- 查看按鈕 -->
+            <td class="px-1 py-1 border border-gray-300 flex justify-center items-center">
+              <button @click="openEditModal(proposal)" class="px-1 py-1 bg-blue-500 text-white rounded items-center">查看</button>
+            </td>
+            <td class="px-1 py-1 border border-gray-300 flex justify-center items-center">
+              <button @click="deleteEditModal(proposal)" class="px-1 py-1 bg-red-600 text-white rounded items-center">刪除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Add 按鈕 -->
+    <div class="fixed bottom-5 right-5 flex space-x-4">
+      <button @click="downloadFile" class="bg-blue-500 text-white p-4 rounded-full shadow-lg hover:bg-blue-400 transition duration-300" title="下載">
+        <i class="material-icons text-black font-bold" style="font-weight: bold;">download</i>
+      </button>
+      <button @click="openCard" class="bg-[#FF7E7F] text-white p-4 rounded-full shadow-lg hover:bg-green-400 transition duration-300" title="新增">
+        <i class="material-icons text-black font-bold" style="font-weight: bold;">Add</i>
+      </button>
+    </div>    
+  </div>
+  <!-- 表格區塊結束 -->
+
+  <!-- 當沒有符合篩選條件的數據時 -->
+  <div v-if="sortedProposals.length === 0" class="text-center text-white py-4">
+    沒有符合條件的資料
+  </div>
+
+  <!-- 篩選選單 -->
+  <div v-if="dropdownOpen" class="fixed bg-white border shadow-lg rounded-lg p-4 z-50 w-72 dropdown-menu"
+    :style="{ top: dropdownPosition.top + 'px', left: dropdownPosition.left + 'px' }">
+    <!-- 搜索框 -->
+    <input type="text" v-model="searchQuery[dropdownOpen]" placeholder="輸入篩選條件..."
+      class="w-full px-3 py-2 border rounded mb-2">
+    <label class="block py-2 font-bold">
+      <input type="checkbox" :checked="isAllSelected" @change="toggleAllSelection" class="mr-2">
+      全選 (ALL)
+    </label>
+    <!-- 可選條件清單 -->
+    <div class="max-h-80 overflow-y-auto">
+      <label v-for="option in filteredDropdownOptions" :key="option" class="block py-2">
+        <input type="checkbox"
+          :value="option"
+          :checked="pendingFilters[dropdownOpen]?.includes(option)"
+          @change="toggleFilterOption(option)"
+          class="mr-2">
+            {{ option }}
+      </label>
+    </div>
+
+    <div v-if="dropdownOpen === 'Due'" class="mt-4">
+      <!-- 篩選輸入框 -->
+      <div class="mt-4">
+        <label for="daysInput" class="block font-bold">篩選距截止日（天數以內）：</label>
+        <div class="flex">
+          <input id="daysInput" type="number" v-model="daysInput" placeholder="例如：10" class="w-20 px-2 py-1 border rounded">
+        </div>
+      </div>
+    </div>
+
+        <!-- 操作按鈕 -->
+    <div class="mt-4 flex justify-between">
+      <button @click="cancalFilterCard" class="px-4 py-2 bg-gray-400 text-white rounded">取消</button>
+      <button @click="handleReset(dropdownOpen)" class="px-4 py-2 bg-gray-400 text-white rounded">重置</button>
+      <button @click="applyFilters" class="px-4 py-2 bg-blue-500 text-white rounded">套用</button>
+    </div>
+  </div>
+  <!-- 篩選選單結束 -->
+
+  <!-- 增加資料的卡片 -->
+  <div v-if="showAddNewCard" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+    <div class="bg-white p-6 rounded-lg shadow-lg w-2/3 max-w-4xl">
+      <h2 class="text-2xl font-bold mb-4 text-center text-gray-800">新增提案<span class="text-red-500 text-sm">*字號為必填</span></h2>
+      <!-- 輸入框分兩組 -->
+      <div class="grid grid-cols-2 gap-4">
+        <!-- 第一組欄位 -->
+        <div class="grid grid-cols-1 gap-4">
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>提案日期:<span class="text-red-500">*</span></strong></p>
+            <input 
+              v-model="newItem['提案日期']" 
+              class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" 
+              type="text"
+              required
+              readonly 
+            />
+          </div>
+          <!-- 棟別輸入框 -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>棟別:<span class="text-red-500">*</span></strong></p>
+            <select v-model="newItem['棟別']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" required>
+              <option value="ALL" selected>ALL</option>
+              <option value="K11">K11</option>
+              <option value="K18">K18</option>
+              <option value="K21">K21</option>
+              <option value="K22">K22</option>
+              <option value="K25">K25</option>
+            </select>
+          </div>
+          <!-- 樓層輸入框 -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>樓層:<span class="text-red-500">*</span></strong></p>
+            <select v-model="newItem['樓層']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" required />
+              <option value="ALL" selected>ALL</option>
+              <option value="1F">1F</option>
+              <option value="2F">2F</option>
+              <option value="3F">3F</option>
+              <option value="4F">4F</option>
+              <option value="5F">5F</option>
+              <option value="6F">6F</option>
+              <option value="7F">7F</option>
+              <option value="8F">8F</option>
+              <option value="9F">9F</option>
+              <option value="10F">10F</option>
+              <option value="11F">11F</option>
+            </select>
+          </div>
+          <!-- 站點 -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>站點:</strong></p>
+            <input v-model="newItem['站點']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"/>
+          </div>
+          <!-- 類別 -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>類別:</strong></p>
+            <select v-model="newItem['類別']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="" disabled selected>選擇類別</option>
+              <option value="ALL">ALL</option>
+              <option value="系統">系統</option>
+              <option value="硬體">硬體</option>
+            </select>
+          </div>
+          <!-- 提案人 -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>提案人:<span class="text-red-500">*</span></strong></p>
+            <input v-model="newItem['提案人']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" required readonly/>
+          </div>
+          <!-- 案件分類 -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>案件分類:</strong></p>
+            <input v-model="newItem['案件分類']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+        </div>
+        <!-- 第二組欄位 -->
+        <div class="grid grid-cols-1 gap-4">
+          <!-- 問題描述 -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>問題描述:</strong></p>
+            <input v-model="newItem['問題描述']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <!-- PDCA -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>PDCA:</strong></p>
+            <select v-model="newItem['PDCA']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="" disabled selected>選擇 PDCA</option>
+              <option value="P">P</option>
+              <option value="D">D</option>
+              <option value="C">C</option>
+              <option value="A">A</option>
+            </select>
+          </div>
+
+          <!-- Owner 部門 -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>Owner 部門:</strong></p>
+            <input v-model="newItem['Owner部門']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+
+          <!-- Status Owner -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>專案 Owner:<span class="text-red-500">*</span></strong></p>
+            <input v-model="newItem['StatusOwner']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" required/>
+          </div>
+
+          <!-- Due Date -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>專案 Due Date:<span class="text-red-500">*</span></strong></p>
+            <input v-model="newItem['Due']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" required/>
+          </div>
+          <!-- 進度紀錄 -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>進度紀錄:<span class="text-red-500">*</span></strong></p>
+            <input v-model="newItem['進度紀錄']" 
+              @focus="setDefaultProgressRecord"
+              class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" 
+            />
+          </div>
+          <!-- Status -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <p class="text-lg text-gray-700 font-medium"><strong>Status:</strong></p>
+            <select v-model="newItem['後端確認']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option disabled value="">選擇 Status</option>
+              <option value="Done">Done</option>
+              <option value="Pending">Pending</option>
+              <option value="On Going">On Going</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div class="mt-6 flex justify-between">
+        <button @click="closeCard" class="bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition ease-in-out duration-300">
+          取消
+        </button>
+        <button @click="submitForm" class="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition ease-in-out duration-300">
+          提交
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 可編輯的「詳細資訊」卡片 -->   
+  <div v-if="editingRow" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+    <div class="bg-[#E3D3D3] p-5 rounded-lg shadow-lg w-full h-full max-w-full max-h-full overflow-auto">
+      <h2 class="text-xl font-bold mb-1 text-center text-gray-800">查看/編輯提案資料<span class="text-red-500 text-sm">*字號為必填</span></h2>
+      <!-- 編輯卡片的上半部 -->
+      <!-- 保留兩欄，並增加 gap -->
+      <div class="grid grid-cols-2 gap-4"> 
+        <!-- 左 -->
+        <div class="space-y-4">
+          <div class="flex items-center gap-1"> 
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>總表項次:<span class="text-red-500">*</span></strong></p> 
+            <input v-model="editingRow['總表項次']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" required readonly/>
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>提案日期:<span class="text-red-500">*</span></strong></p>
+            <input v-model="editingRow['提案日期']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" required readonly/>
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>棟別:<span class="text-red-500">*</span></strong></p>
+            <select v-model="editingRow['棟別']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" required>
+              <option value="" disabled selected>選擇棟別</option>
+              <option value="ALL">ALL</option>
+              <option value="K11">K11</option>
+              <option value="K18">K18</option>
+              <option value="K21">K21</option>
+              <option value="K22">K22</option>
+              <option value="K25">K25</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>樓層:</strong></p>
+            <select v-model="editingRow['樓層']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" />
+              <option value="" disabled selected>選擇樓層</option>
+              <option value="ALL" selected>ALL</option>
+              <option value="1F">1F</option>
+              <option value="2F">2F</option>
+              <option value="3F">3F</option>
+              <option value="4F">4F</option>
+              <option value="5F">5F</option>
+              <option value="6F">6F</option>
+              <option value="7F">7F</option>
+              <option value="8F">8F</option>
+              <option value="9F">9F</option>
+              <option value="10F">10F</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>站點:</strong></p>
+            <input v-model="editingRow['站點']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" />
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>類別:</strong></p>
+            <select v-model="editingRow['類別']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow">
+              <option value="" disabled selected>選擇類別</option>
+              <option value="ALL">ALL</option>
+              <option value="系統">系統</option>
+              <option value="硬體">硬體</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>提案人:<span class="text-red-500">*</span></strong></p>
+            <input v-model="editingRow['提案人']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" required readonly/>
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>案件分類:</strong></p>
+            <input v-model="editingRow['案件分類']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" />
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>問題描述:</strong></p>
+            <input v-model="editingRow['問題描述']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" />
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>PDCA:</strong></p>
+            <select v-model="editingRow['PDCA']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow">
+              <option value="" disabled selected>選擇 PDCA</option>
+              <option value="P">P</option>
+              <option value="D">D</option>
+              <option value="C">C</option>
+              <option value="A">A</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>Owner 部門:<span class="text-red-500">*</span></strong></p>
+            <input v-model="editingRow['Owner部門']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" />
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>專案 Owner:<span class="text-red-500">*</span></strong></p>
+            <input v-model="editingRow['StatusOwner']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" />
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>專案 Due Date:<span class="text-red-500">*</span></strong></p>
+            <input v-model="editingRow['Due']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" />
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>項目 Owner:<span class="text-red-500">*</span></strong></p>
+            <input v-model="editingRow['項目Owner']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" />
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>項目 Due Date:<span class="text-red-500">*</span></strong></p>
+            <input v-model="editingRow['項目 Due Date']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow" />
+          </div>
+          <div class="flex items-center gap-1">
+            <p class="text-lg text-gray-700 font-medium w-1/6"><strong>Status:</strong></p>
+            <select v-model="editingRow['後端確認']" class="text-lg text-gray-700 border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 flex-grow">
+              <option value="" disabled selected>選擇 Status</option>
+              <option value="Done">Done</option>
+              <option value="Pending">Pending</option>
+              <option value="On Going">On Going</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="grid grid-cols-1 gap-1 items-center">
+            <h2 class="text-xl text-gray-700 font-bold text-center"><strong>新增進度:</strong></h2>
+            <textarea
+              v-model="progressText"  
+              class="text-lg text-gray-700 border p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 w-full h-32 resize-none" 
+              :placeholder="placeholderText"
+              @keyup.enter="addProgress"
+              @focus="insertTodayDate"
+              >
+            </textarea>
+          </div>
+          <div class="flex justify-between">
+            <button @click="clearProgress" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition ease-in-out duration-300">清空</button>
+            <button @click="addProgress" class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition ease-in-out duration-300">新增</button>
+          </div>
+
+          <div class="mt-6">
+            <h2 class="text-xl text-gray-800 font-bold text-center">進度紀錄</h2>
+            <!-- 進度紀錄表格 -->
+            <div class="flex flex-col max-h-[33rem] overflow-y-auto"> 
+              <table class="min-w-full table-auto border-collapse border border-black">
+                <tbody>
+                  <tr v-for="(item, rowindex) in this.reversedProgress" :key="rowindex">
+                    <!-- 進度紀錄內容 -->
+                    <td class="py-1 border border-black bg-[#E4E2B3]"
+                      :class="{
+                        'bg-[#A2B69F]': rowindex === 0, 
+                      }">
+                      <!-- 編輯模式顯示 textarea -->
+                      <template v-if="isEditing && editingIndex === rowindex">
+                        <textarea 
+                          v-model="editedRecord"
+                          @keyup.enter="saveEdit(item, rowindex)"
+                          class="w-full p-2 border rounded mb-4 text-black"
+                          rows="10"
+                          >
+                        </textarea>
+                      </template>
+                      <!-- 正常顯示進度紀錄 -->
+                      <template v-else>
+                        <div v-html="splitItems(item)"></div>
+                       </template>
+                      <!-- 只在第一條進度紀錄的末尾顯示按鈕 -->
+                      <template v-if="rowindex === 0">
+                        <div class="inline-flex items-center float-right">
+                          <button v-if="isButtonClicked" class="bg-blue-500 text-white py-0.45 px-3 rounded hover:bg-blue-600 mr-2" @click="handleButtonClick(item, rowindex)">
+                            修正
+                          </button>
+                          <button class="bg-red-500 text-white py-0.45 px-3 rounded hover:bg-red-600" @click="deleteRow(item, rowindex, this.editingRow)">
+                            刪除
+                          </button>
+                        </div>
+                      </template>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- 按鈕區隔 -->
+            <div class="mt-6 flex justify-center space-x-8"> 
+              <button @click="closeEditModal" class="bg-gray-300 text-gray-700 border border-gray-500 px-6 py-3 rounded-lg hover:bg-gray-400 transition ease-in-out duration-300">取消</button>
+              <button @click="saveChanges" class="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition ease-in-out duration-300">🚀 提交</button>
+              <button @click="setSupervisorNode" class="bg-indigo-500 text-white px-6 py-3 rounded-lg hover:bg-indigo-600 shadow-md border border-indigo-700 transition ease-in-out duration-300 flex items-center gap-2">
+                ⚙️ 節點設置
+              </button>
+            </div>          
+          </div>
+        </div>
+      </div>
+      <!-- 編輯卡片的上半部 -->
+    </div>
+  </div>
+</div>
+<script src="../static/js/proposals.js"></script>
+</body>
+</html>

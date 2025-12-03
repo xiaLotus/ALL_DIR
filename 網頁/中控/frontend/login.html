@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FT01 資訊管理組 - 登入中心</title>
+
+    <script src="static/js/package/tailwindcss.js"></script>
+    <script src="static/js/package/vue.global.js"></script>
+    <script src="static/js/package/lucide.js"></script>
+
+    <style>
+      @font-face {
+        font-family: "Iansui";
+        src: url("./static/fonts/Iansui-Regular.ttf") format("truetype");
+        font-weight: normal;
+        font-style: normal;
+      }
+
+      body {
+        font-family: "Iansui", "Noto Sans TC", sans-serif;
+        background: linear-gradient(to bottom right, #fff7ed, #ffedd5, #fee2e2);
+        min-height: 100vh;
+        overflow: hidden;
+      }
+
+      /* 頁面淡入動畫 */
+      #app {
+        animation: fadeIn 0.6s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      /* 背景圓球淡入 */
+      .bg-blob {
+        animation: blobFadeIn 1s ease-out, float 6s ease-in-out 1s infinite;
+      }
+
+      @keyframes blobFadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.8);
+        }
+        to {
+          opacity: 0.4;
+          transform: scale(1);
+        }
+      }
+
+      /* 浮動動畫 */
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-8px);
+        }
+      }
+
+      /* 登入卡片滑入動畫 */
+      .login-card {
+        animation: slideUp 0.8s ease-out;
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Logo 旋轉淡入 */
+      .logo-icon {
+        animation: logoAppear 0.8s ease-out 0.3s both;
+      }
+
+      @keyframes logoAppear {
+        from {
+          opacity: 0;
+          transform: scale(0.5) rotate(-180deg);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) rotate(0deg);
+        }
+      }
+
+      /* 表單元素依序淡入 */
+      .form-item {
+        animation: itemFadeIn 0.5s ease-out both;
+      }
+
+      .form-item:nth-child(1) {
+        animation-delay: 0.4s;
+      }
+      .form-item:nth-child(2) {
+        animation-delay: 0.5s;
+      }
+      .form-item:nth-child(3) {
+        animation-delay: 0.6s;
+      }
+      .form-item:nth-child(4) {
+        animation-delay: 0.7s;
+      }
+
+      @keyframes itemFadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div
+      id="app"
+      class="relative flex items-center justify-center min-h-screen"
+    >
+      <!-- 背景漸層圓球 -->
+      <div class="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          class="bg-blob absolute top-20 left-20 w-72 h-72 bg-gradient-to-r from-orange-200 to-yellow-200 rounded-full mix-blend-multiply filter blur-2xl"
+          style="animation-delay: 0.1s"
+        ></div>
+        <div
+          class="bg-blob absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-r from-pink-200 to-rose-300 rounded-full mix-blend-multiply filter blur-2xl"
+          style="animation-delay: 0.3s"
+        ></div>
+      </div>
+
+      <!-- 登入卡片 -->
+      <div
+        class="login-card relative z-10 w-full max-w-md mx-auto bg-white/80 backdrop-blur-md border border-orange-100 rounded-3xl shadow-2xl p-10 text-center"
+      >
+        <!-- Logo -->
+        <div class="flex justify-center mb-6">
+          <div
+            class="logo-icon w-14 h-14 rounded-2xl bg-gradient-to-r from-orange-400 to-red-400 flex items-center justify-center shadow-lg"
+          >
+            <i data-lucide="lock" class="w-7 h-7 text-white"></i>
+          </div>
+        </div>
+
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">FT01 資訊管理組</h1>
+        <p class="text-gray-500 mb-8 text-sm">登入系統以進入中控平台</p>
+
+        <!-- 登入表單 -->
+        <form @submit.prevent="login">
+          <div class="form-item mb-4 text-left">
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >使用者名稱</label
+            >
+            <div class="relative">
+              <i
+                data-lucide="user"
+                class="absolute left-3 top-3 w-5 h-5 text-gray-400"
+              ></i>
+              <input
+                v-model="username"
+                type="text"
+                required
+                class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none transition-all"
+                placeholder="請輸入帳號"
+              />
+            </div>
+          </div>
+
+          <div class="form-item mb-6 text-left">
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >密碼</label
+            >
+            <div class="relative">
+              <i
+                data-lucide="key-round"
+                class="absolute left-3 top-3 w-5 h-5 text-gray-400"
+              ></i>
+              <input
+                v-model="password"
+                :type="showPassword ? 'text' : 'password'"
+                required
+                class="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none transition-all"
+                placeholder="請輸入密碼"
+              />
+              <button
+                type="button"
+                @click="togglePassword"
+                class="absolute right-3 top-3 text-gray-400 hover:text-orange-400 transition-colors"
+              >
+                <i
+                  :data-lucide="showPassword ? 'eye-off' : 'eye'"
+                  class="w-5 h-5"
+                ></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 登入按鈕 -->
+          <button
+            type="submit"
+            :disabled="isLoading"
+            class="form-item w-full py-3 bg-gradient-to-r from-orange-400 to-red-400 text-white font-semibold rounded-xl hover:from-orange-500 hover:to-red-500 hover:shadow-xl hover:scale-[1.02] shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+          >
+            <svg
+              v-show="isLoading"
+              class="w-5 h-5 animate-spin"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            <span>{{ isLoading ? '登入中...' : '登入' }}</span>
+          </button>
+
+          <!-- 錯誤訊息 -->
+          <p
+            v-if="errorMsg"
+            class="form-item mt-4 text-sm text-red-600 font-medium"
+          >
+            {{ errorMsg }}
+          </p>
+        </form>
+
+        <!-- 頁腳 -->
+        <div
+          class="mt-8 text-gray-400 text-xs opacity-0"
+          style="animation: itemFadeIn 0.5s ease-out 0.8s both"
+        >
+          <i data-lucide="shield" class="inline w-4 h-4 mr-1 text-gray-400"></i>
+          系統安全登入 © 2024 ~ {{ currentYear }} FT01 4000 資訊管理組
+        </div>
+      </div>
+    </div>
+
+    <script src="static/js/login.js"></script>
+  </body>
+</html>

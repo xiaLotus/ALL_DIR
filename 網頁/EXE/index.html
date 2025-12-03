@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP設備管理系統</title>
+    <script src="static/js/tailwinds.js"></script>
+    <script src="static/js/vue.global.js"></script>
+    <script src="static/js/axios.min.js"></script>
+    <script src="static/js/lucide.js"></script>
+    <script src="static/js/sweetalert2@11.js"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div id="app">
+        <!-- 頂部導航 -->
+        <nav class="bg-white shadow-lg border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <i data-lucide="server" class="h-8 w-8 text-blue-600 mr-3"></i>
+                        <h1 class="text-2xl font-bold text-gray-900">IP設備管理系統</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button @click="reloadData" 
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <i data-lucide="refresh-cw" class="h-4 w-4 mr-2"></i>
+                            重新載入
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主要內容 -->
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- 統計卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i data-lucide="building" class="h-6 w-6 text-gray-400"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">建築總數</dt>
+                                    <dd class="text-lg font-medium text-gray-900">{{ statistics.total_buildings }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i data-lucide="globe" class="h-6 w-6 text-gray-400"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">IP總數</dt>
+                                    <dd class="text-lg font-medium text-gray-900">{{ statistics.total_ips }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i data-lucide="cpu" class="h-6 w-6 text-gray-400"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">設備總數</dt>
+                                    <dd class="text-lg font-medium text-gray-900">{{ statistics.total_devices }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i data-lucide="activity" class="h-6 w-6 text-gray-400"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">狀態</dt>
+                                    <dd class="text-lg font-medium text-green-600">運行中</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制面板 -->
+            <div class="bg-white shadow rounded-lg mb-8">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">管理面板</h3>
+                </div>
+                <div class="px-6 py-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <!-- 建築選擇 -->
+                        <div>
+                            <label for="buildingSelect" class="block text-sm font-medium text-gray-700 mb-2">選擇建築樓層</label>
+                            <select v-model="selectedBuilding" 
+                                    @change="loadBuildingData"
+                                    class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md">
+                                <option value="">所有樓層</option>
+                                <option v-for="building in buildings" :key="building" :value="building">{{ building }}</option>
+                            </select>
+                        </div>
+
+                        <!-- 搜尋框 -->
+                        <div>
+                            <label for="searchInput" class="block text-sm font-medium text-gray-700 mb-2">搜尋設備或IP</label>
+                            <div class="relative">
+                                <input v-model="searchQuery" 
+                                       @input="searchDevices"
+                                       type="text" 
+                                       placeholder="輸入IP地址或設備名稱"
+                                       class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i data-lucide="search" class="h-5 w-5 text-gray-400"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 新增設備按鈕 -->
+                        <div class="flex items-end">
+                            <button @click="showAddDeviceModal" 
+                                    class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                <i data-lucide="plus" class="h-4 w-4 mr-2"></i>
+                                新增設備
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 數據顯示區域 -->
+            <div class="space-y-6">
+                <div v-for="[buildingName, buildingData] in sortedDisplayData" :key="buildingName" class="bg-white shadow rounded-lg overflow-hidden">
+                    <div class="bg-gray-50 px-6 py-3 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                            <i data-lucide="building-2" class="h-5 w-5 mr-2 text-blue-600"></i>
+                            {{ buildingName }}
+                            <span class="ml-2 text-sm text-gray-500">
+                                ({{ Object.keys(buildingData).length }} IPs, 
+                                {{ getTotalDevices(buildingData) }} 設備)
+                            </span>
+                        </h3>
+                    </div>
+                    
+                    <div class="divide-y divide-gray-200">
+                        <div v-for="(devices, ip) in buildingData" :key="ip" class="px-6 py-4 hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <i data-lucide="globe" class="h-4 w-4 mr-2 text-blue-500"></i>
+                                    <span class="font-mono text-sm font-semibold text-gray-900">{{ ip }}</span>
+                                </div>
+                                <span class="text-xs text-gray-500">{{ devices.length }} 設備</span>
+                            </div>
+                            
+                            <div class="flex flex-wrap gap-2">
+                                <span v-for="device in devices" :key="device" 
+                                      class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors group cursor-pointer">
+                                    <i data-lucide="cpu" class="h-3 w-3 mr-1"></i>
+                                    {{ device }}
+                                    <button @click="removeDevice(buildingName, ip, device)" 
+                                            class="ml-2 inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100">
+                                        <i data-lucide="x" class="h-2 w-2"></i>
+                                    </button>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 載入中狀態 -->
+            <div v-if="loading" class="flex justify-center items-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span class="ml-2 text-gray-600">載入中...</span>
+            </div>
+
+            <!-- 無數據狀態 -->
+            <div v-if="!loading && Object.keys(displayData).length === 0" class="text-center py-12">
+                <i data-lucide="database" class="h-12 w-12 text-gray-400 mx-auto mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">沒有找到數據</h3>
+                <p class="text-gray-500">請檢查資料檔案是否存在或嘗試重新載入。</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    buildings: [],
+                    allData: {},
+                    displayData: {},
+                    selectedBuilding: '',
+                    searchQuery: '',
+                    loading: false,
+                    statistics: {
+                        total_buildings: 0,
+                        total_ips: 0,
+                        total_devices: 0
+                    }
+                }
+            },
+            mounted() {
+                // 初始化載入
+                this.loadInitialData();
+                lucide.createIcons();
+
+                // 還原 searchQuery
+                const savedQuery = localStorage.getItem("searchQuery");
+                if (savedQuery) {
+                    this.searchQuery = savedQuery;
+                }
+
+                // 還原 selectedBuilding
+                const savedBuilding = localStorage.getItem("selectedBuilding");
+                if (savedBuilding) {
+                    this.selectedBuilding = savedBuilding;
+                }
+
+                // 如果有搜尋條件 → 優先套用搜尋
+                if (this.searchQuery.trim()) {
+                    this.searchDevices();
+                    this.$nextTick(() => {
+                        document.getElementById("searchInput")?.focus();
+                    });
+                } else if (this.selectedBuilding) {
+                    this.loadBuildingData();
+                }
+            },
+            computed: {
+                sortedDisplayData() {
+                    const keys = Object.keys(this.displayData);
+                    const sortedKeys = this.sortBuildings(keys);
+                    return sortedKeys.map(k => [k, this.displayData[k]]);
+                }
+            },
+            watch: {
+                searchQuery(newVal) {
+                    localStorage.setItem("searchQuery", newVal);
+                },
+                selectedBuilding(newVal) {
+                    localStorage.setItem("selectedBuilding", newVal);
+                }
+            },
+            methods: {
+                async loadInitialData() {
+                    this.loading = true;
+                    try {
+                        await Promise.all([
+                            this.loadBuildings(),
+                            this.loadAllData(),
+                            this.loadStatistics()
+                        ]);
+
+                        // 判斷是否有搜尋條件
+                        if (this.searchQuery.trim()) {
+                            await this.searchDevices();   // 維持搜尋結果
+                            this.$nextTick(() => {
+                                document.getElementById("searchInput")?.focus();
+                            });
+                        } else if (this.selectedBuilding) {
+                            // 有選樓層，但沒搜尋 → 保持樓層顯示
+                            this.displayData = { [this.selectedBuilding]: this.allData[this.selectedBuilding] };
+                        } else {
+                            // 沒有搜尋也沒選樓層 → 顯示全部
+                            this.displayData = this.allData;
+                        }
+
+                    } catch (error) {
+                        console.error('Error loading initial data:', error);
+                        this.showError('載入數據失敗', error.message);
+                    } finally {
+                        this.loading = false;
+                        this.$nextTick(() => {
+                            lucide.createIcons();
+                        });
+                    }
+                },
+                async loadBuildings() {
+                    const response = await axios.get('http://127.0.0.1:5000/api/buildings');
+                    if (response.data.success) {
+                        this.buildings = this.sortBuildings(response.data.data);
+                    }
+                },
+
+                sortBuildings(buildings) {
+                    return buildings.sort((a, b) => {
+                        const parseBuilding = (building) => {
+                            try {
+                                // 解析格式如 K11_3F, K18_10F 等
+                                if (building.includes('K') && building.includes('F')) {
+                                    const parts = building.split('K')[1]; // 獲取K後面的部分
+                                    if (parts.includes('_')) {
+                                        const [kNumStr, fPart] = parts.split('_', 2);
+                                        const fNumStr = fPart.replace('F', '');
+                                        const kNum = parseInt(kNumStr);
+                                        const fNum = parseInt(fNumStr);
+                                        return [kNum, fNum];
+                                    }
+                                }
+                                return [999, 999]; // 無法解析的放最後
+                            } catch {
+                                return [999, 999];
+                            }
+                        };
+
+                        const [aK, aF] = parseBuilding(a);
+                        const [bK, bF] = parseBuilding(b);
+
+                        // 先比較K數字，再比較F數字
+                        if (aK !== bK) return aK - bK;
+                        return aF - bF;
+                    });
+                },
+
+                async loadAllData() {
+                    const response = await axios.get('http://127.0.0.1:5000/api/data/all');
+                    if (response.data.success) {
+                        this.allData = response.data.data;
+                    }
+                },
+
+                async loadStatistics() {
+                    const response = await axios.get('http://127.0.0.1:5000/api/statistics');
+                    if (response.data.success) {
+                        this.statistics = response.data.data;
+                    }
+                },
+
+                async loadBuildingData() {
+                    if (!this.selectedBuilding) {
+                        this.displayData = this.allData;
+                        return;
+                    }
+
+                    this.loading = true;
+                    try {
+                        const response = await axios.get(`http://127.0.0.1:5000/api/buildings/${this.selectedBuilding}`);
+                        if (response.data.success) {
+                            this.displayData = { [this.selectedBuilding]: response.data.data };
+                        }
+                    } catch (error) {
+                        console.error('Error loading building data:', error);
+                        this.showError('載入建築數據失敗', error.message);
+                    } finally {
+                        this.loading = false;
+                        this.$nextTick(() => {
+                            lucide.createIcons();
+                        });
+                    }
+                },
+
+                async searchDevices() {
+                    if (!this.searchQuery.trim()) {
+                        this.displayData = this.selectedBuilding ? 
+                            { [this.selectedBuilding]: this.allData[this.selectedBuilding] } : 
+                            this.allData;
+                        return;
+                    }
+
+                    try {
+                        const response = await axios.get(`http://127.0.0.1:5000/api/search?q=${encodeURIComponent(this.searchQuery)}`);
+                        if (response.data.success) {
+                            this.displayData = response.data.data;
+                        }
+                    } catch (error) {
+                        console.error('Error searching devices:', error);
+                        this.showError('搜尋失敗', error.message);
+                    }
+                },
+
+                async showAddDeviceModal() {
+                    const { value: formValues } = await Swal.fire({
+                        title: '新增設備',
+                        html: `
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">建築樓層</label>
+                                    <select id="modalBuilding" class="w-full p-2 border border-gray-300 rounded-md">
+                                        <option value="">選擇建築</option>
+                                        ${this.buildings.map(b => `<option value="${b}">${b}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">IP地址</label>
+                                    <input id="modalIP" type="text" placeholder="例: 172.21.27.32" class="w-full p-2 border border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">設備名稱</label>
+                                    <input id="modalDevice" type="text" placeholder="例: 2845-K01" class="w-full p-2 border border-gray-300 rounded-md">
+                                </div>
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: '新增',
+                        cancelButtonText: '取消',
+                        preConfirm: () => {
+                            const building = document.getElementById('modalBuilding').value;
+                            const ip = document.getElementById('modalIP').value;
+                            const device = document.getElementById('modalDevice').value;
+
+                            if (!building || !ip || !device) {
+                                Swal.showValidationMessage('請填寫所有欄位');
+                                return false;
+                            }
+
+                            return { building, ip, device };
+                        }
+                    });
+
+                    if (formValues) {
+                        await this.addDevice(formValues.building, formValues.ip, formValues.device);
+                    }
+                },
+
+                async addDevice(building, ip, device) {
+                    try {
+                        const response = await axios.post('http://127.0.0.1:5000/api/device/add', {
+                            building: building,
+                            ip: ip,
+                            device: device
+                        });
+
+                        if (response.data.success) {
+                            this.showSuccess('新增成功', '設備已成功新增');
+                            await this.loadInitialData();
+                        } else {
+                            this.showError('新增失敗', response.data.error);
+                        }
+                    } catch (error) {
+                        console.error('Error adding device:', error);
+                        this.showError('新增失敗', error.response?.data?.error || error.message);
+                    }
+                },
+
+                async removeDevice(building, ip, device) {
+                    const result = await Swal.fire({
+                        title: '確認刪除',
+                        text: `確定要刪除設備 "${device}" 嗎？`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: '刪除',
+                        cancelButtonText: '取消'
+                    });
+
+                    if (result.isConfirmed) {
+                        try {
+                            const response = await axios.delete('http://127.0.0.1:5000/api/device/remove', {
+                                data: { building, ip, device }
+                            });
+
+                            if (response.data.success) {
+                                this.showSuccess('刪除成功', '設備已成功刪除');
+                                await this.loadInitialData();
+                            } else {
+                                this.showError('刪除失敗', response.data.error);
+                            }
+                        } catch (error) {
+                            console.error('Error removing device:', error);
+                            this.showError('刪除失敗', error.response?.data?.error || error.message);
+                        }
+                    }
+                },
+
+                async reloadData() {
+                    this.loading = true;
+                    try {
+                        const response = await axios.post('http://127.0.0.1:5000/api/reload');
+                        if (response.data.success) {
+                            await this.loadInitialData();
+                            this.showSuccess('重新載入成功', '數據已成功重新載入');
+                        }
+                    } catch (error) {
+                        console.error('Error reloading data:', error);
+                        this.showError('重新載入失敗', error.message);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                getTotalDevices(buildingData) {
+                    return Object.values(buildingData).reduce((total, devices) => total + devices.length, 0);
+                },
+
+                showSuccess(title, text) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: title,
+                        text: text,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                },
+
+                showError(title, text) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: title,
+                        text: text
+                    });
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

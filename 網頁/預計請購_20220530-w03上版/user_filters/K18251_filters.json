@@ -1,0 +1,33 @@
+{
+  "username": "K18251",
+  "filterPurchaseStatus": "ALL",
+  "checkedPeople": [],
+  "checkedReceivingResults": [],
+  "checkedStates": [],
+  "checkedWBS": [],
+  "checkedOrders": [],
+  "checkedNeedDates": [],
+  "checkedIssuedMonths": [
+    "202511"
+  ],
+  "checkedEPRs": [],
+  "checkedPONos": [],
+  "checkedItems": [],
+  "checkedReasons": [],
+  "checkedAmounts": [],
+  "checkedStages": [],
+  "checkedStatuses": [],
+  "checkedRemarks": [],
+  "checkedDirectorApprovals": [],
+  "checkedUncleApprovals": [],
+  "itemSearchText": "",
+  "reasonSearchText": "",
+  "sortField": "",
+  "sortOrder": "asc",
+  "selectedMonth": "202511",
+  "selectedIssuedMonth": "202511",
+  "filterStartDate": "",
+  "filterEndDate": "",
+  "dateFilterActive": false,
+  "lastUpdated": "2025-12-02T13:26:02.836Z"
+}

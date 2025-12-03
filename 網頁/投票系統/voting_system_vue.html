@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>匿名投票系統</title>
+    <script src="static/js/package/tailwinds.js"></script>
+    <script src="static/js/package/vue.global.js"></script>
+    <script src="static/js/package/sweetalert2@11.js"></script>
+    <style>
+      [v-cloak] {
+        display: none;
+      }
+      body {
+        background: linear-gradient(
+          135deg,
+          #f5f0ea 0%,
+          #ede4d8 50%,
+          #e8dcc8 100%
+        );
+        overflow: hidden;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .fade-in {
+        animation: fadeIn 0.5s ease-out;
+      }
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: #d97706 #f3f4f6;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f3f4f6;
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #d97706;
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #b45309;
+      }
+    </style>
+  </head>
+  <body class="h-screen flex items-center justify-center p-4">
+    <div id="app" v-cloak class="w-full h-full">
+      <!-- 載入中狀態 -->
+      <div v-if="isLoading" class="flex items-center justify-center h-full">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 text-center">
+          <svg
+            class="animate-spin h-12 w-12 text-amber-600 mx-auto mb-4"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            ></circle>
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+          <p class="text-gray-600 font-semibold">載入中...</p>
+        </div>
+      </div>
+
+      <!-- 主界面 -->
+      <div
+        v-if="!isLoading"
+        class="bg-white rounded-3xl shadow-2xl overflow-hidden w-full h-full fade-in"
+      >
+        <div class="grid grid-cols-2 h-full">
+          <!-- 左側:歡迎回來 + 目前票選 -->
+          <div
+            class="bg-gradient-to-br from-orange-700 via-red-600 to-red-700 p-6 text-white relative overflow-hidden flex flex-col"
+          >
+            <!-- 裝飾圓圈 -->
+            <div
+              class="absolute top-0 right-0 w-48 h-48 bg-white opacity-10 rounded-full -mr-24 -mt-24"
+            ></div>
+            <div
+              class="absolute bottom-0 left-0 w-40 h-40 bg-white opacity-10 rounded-full -ml-20 -mb-20"
+            ></div>
+
+            <div class="relative z-10 flex flex-col h-full">
+              <!-- 用戶資訊 -->
+              <div class="mb-4 flex-shrink-0">
+                <div class="flex items-center space-x-4 mb-4">
+                  <div
+                    class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center"
+                  >
+                    <svg
+                      class="w-8 h-8 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="text-white/80 text-sm">歡迎回來</p>
+                    <p class="text-2xl font-bold text-white">
+                      {{ currentVoter.name }}
+                    </p>
+                    <div class="flex items-center space-x-2 mt-1">
+                      <span class="text-sm text-white/80"
+                        >工號:{{ currentVoter.emp_id }}</span
+                      >
+                      <span class="text-white/60">•</span>
+                      <span
+                        :class="currentVoter.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
+                        class="px-3 py-1 rounded-full text-xs font-bold"
+                      >
+                        {{ currentVoter.shift_type }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 投票限制警告 -->
+              <div
+                v-if="!canVote"
+                class="bg-red-500/20 border-l-4 border-red-300 p-3 rounded-xl mb-4 backdrop-blur-sm flex-shrink-0"
+              >
+                <div class="flex items-start">
+                  <svg
+                    class="w-6 h-6 text-red-200 mr-3 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <div class="flex-1">
+                    <h3 class="text-base font-bold text-white mb-1">
+                      ⏳ 投票限制中
+                    </h3>
+                    <p class="text-white/90 font-semibold text-sm">
+                      {{ voteRestrictionMessage }}
+                    </p>
+                    <p class="text-white/80 text-xs mt-1">
+                      本月已用 {{ votesUsed }}/{{ maxVotes }} 票 • 您仍可以瀏覽候選人列表和查看統計資料
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 排行榜 -->
+              <div class="flex-1 flex flex-col min-h-0">
+                <div class="flex items-center justify-center mb-3 flex-shrink-0">
+                  <svg
+                    class="w-6 h-6 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                    />
+                  </svg>
+                  <h3 class="text-xl font-bold">🏆 目前票數排行 TOP 5</h3>
+                </div>
+
+                <div class="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                  <div
+                    v-if="leaderboard.length === 0"
+                    class="text-center py-8 text-white/80"
+                  >
+                    目前還沒有投票記錄
+                  </div>
+                  <div v-else class="space-y-3">
+                    <div
+                      v-for="(item, index) in leaderboard"
+                      :key="item.emp_id"
+                      :class="[
+                        'rounded-xl p-3 flex items-center justify-between transition-all',
+                        index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900' :
+                        index === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-900' :
+                        index === 2 ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white' :
+                        'bg-white/20 backdrop-blur text-white'
+                      ]"
+                    >
+                      <div class="flex items-center space-x-3">
+                        <div
+                          class="w-10 h-10 bg-white/30 rounded-full flex items-center justify-center font-bold text-lg"
+                        >
+                          {{ index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1 }}
+                        </div>
+                        <div>
+                          <p class="font-bold">{{ item.name }}</p>
+                          <p class="text-sm opacity-80">{{ item.emp_id }}</p>
+                        </div>
+                      </div>
+                      <div class="bg-white/30 px-3 py-1 rounded-full font-bold">
+                        {{ item.vote_count }} 票
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右側:投票域域 -->
+          <div
+            class="p-5 flex flex-col h-full relative"
+            style="background: linear-gradient(to bottom, #fffbf5, #fff7ed)"
+          >
+            <!-- 離開按鈕 -->
+            <button
+              @click="logout"
+              class="absolute top-3 right-3 text-gray-500 hover:text-gray-700 font-semibold z-10 transition-colors"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+            </button>
+
+            <!-- 投票資訊 - 固定 -->
+            <div
+              class="bg-amber-50 border-l-4 border-amber-500 p-2.5 rounded-lg mb-2.5 flex-shrink-0"
+            >
+              <div class="flex items-center flex-wrap gap-x-3 gap-y-1.5 text-xs mb-2">
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-bold text-gray-700">您的身份:</span>
+                  <span
+                    :class="currentVoter.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
+                    class="px-2.5 py-0.5 rounded-full font-bold"
+                    >{{ currentVoter.shift_type }}</span
+                  >
+                </div>
+                <span class="text-gray-400">•</span>
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-bold text-gray-700">可投票對象:</span>
+                  <span class="text-amber-600 font-bold"
+                    >{{ displayTargetShift }}</span
+                  >
+                </div>
+                <span class="text-gray-400">•</span>
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-bold text-gray-700">候選人數量:</span>
+                  <span class="text-amber-600 font-bold"
+                    >{{ candidates.length }} 位</span
+                  >
+                </div>
+              </div>
+              
+              <!-- 投票進度條 -->
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-gray-700 whitespace-nowrap">投票進度:</span>
+                <div class="flex-1 bg-gray-200 rounded-full h-5 overflow-hidden">
+                  <div 
+                    :style="{ width: (votesUsed / maxVotes * 100) + '%' }"
+                    :class="votesUsed === maxVotes ? 'bg-green-500' : 'bg-amber-500'"
+                    class="h-full flex items-center justify-center transition-all duration-500"
+                  >
+                    <span v-if="votesUsed > 0" class="text-white text-xs font-bold px-2">
+                      {{ votesUsed }}/{{ maxVotes }}
+                    </span>
+                  </div>
+                </div>
+                <span class="text-xs font-bold whitespace-nowrap" :class="votesUsed === maxVotes ? 'text-green-600' : 'text-amber-600'">
+                  {{ votesUsed === maxVotes ? '✓ 已完成' : `剩 ${maxVotes - votesUsed} 票` }}
+                </span>
+              </div>
+            </div>
+
+            <!-- 搜尋候選人 - 固定 -->
+            <div class="mb-2 flex-shrink-0">
+              <div class="relative">
+                <div
+                  class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                >
+                  <svg
+                    class="w-5 h-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  v-model="candidateSearch"
+                  placeholder="搜尋候選人姓名或工號..."
+                  class="w-full pl-11 pr-3 py-2 border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 focus:outline-none transition-all text-sm"
+                />
+              </div>
+            </div>
+
+            <!-- 候選人計數提示 - 固定 -->
+            <div class="text-xs text-gray-600 mb-1.5 flex-shrink-0 flex items-center justify-between">
+              <span>
+                顯示 <span class="font-bold text-amber-600">{{ paginatedCandidates.length }}</span> / 
+                <span class="font-bold">{{ filteredCandidates.length }}</span> 位候選人
+                <span v-if="selectedCandidates.length > 0" class="ml-2 text-green-600 font-bold">
+                  (已選 {{ selectedCandidates.length }}/{{ remainingVotes }} 位)
+                </span>
+              </span>
+              <span v-if="totalPages > 1" class="text-xs text-gray-500">
+                (第 {{ currentPage }}/{{ totalPages }} 頁)
+              </span>
+            </div>
+
+            <!-- 候選人列表容器 - 使用 flex-1 並設置最小高度為 0 -->
+            <div class="flex-1 overflow-hidden mb-1.5 min-h-0">
+              <div class="h-full overflow-y-auto custom-scrollbar pr-1">
+                <div class="space-y-1.5">
+                  <!-- 空狀態 -->
+                  <div
+                    v-if="paginatedCandidates.length === 0"
+                    class="text-center py-8 text-gray-400"
+                  >
+                    <svg
+                      class="w-12 h-12 mx-auto mb-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <p class="text-sm">找不到符合的候選人</p>
+                  </div>
+                  
+                  <!-- 候選人卡片 -->
+                  <div
+                    v-for="(candidate, index) in paginatedCandidates"
+                    :key="candidate.emp_id"
+                    @click="canVote ? selectCandidate(candidate) : null"
+                    :class="{
+                      'border-amber-500 bg-amber-50 shadow-lg': selectedCandidates.some(c => c.emp_id === candidate.emp_id) && canVote,
+                      'border-gray-200 hover:border-amber-300 hover:bg-amber-50/50': !selectedCandidates.some(c => c.emp_id === candidate.emp_id) && canVote,
+                      'border-gray-200 opacity-60 cursor-not-allowed': !canVote,
+                      'cursor-pointer': canVote
+                    }"
+                    class="border-2 rounded-lg p-2 transition-all duration-200"
+                  >
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center space-x-2 flex-1 min-w-0">
+                        <div
+                          :class="selectedCandidates.some(c => c.emp_id === candidate.emp_id) && canVote ? 'bg-amber-600 text-white ring-4 ring-amber-200' : 'bg-gray-200 text-gray-700'"
+                          class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all flex-shrink-0"
+                        >
+                          {{ (currentPage - 1) * itemsPerPage + index + 1 }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <p class="font-bold text-gray-800 truncate text-sm">
+                            {{ candidate.name }}
+                          </p>
+                          <p class="text-xs text-gray-500">
+                            {{ candidate.emp_id }}
+                          </p>
+                        </div>
+                      </div>
+                      <div class="flex items-center space-x-2 flex-shrink-0">
+                        <span
+                          :class="candidate.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
+                          class="px-2 py-0.5 rounded-full text-xs font-bold"
+                        >
+                          {{ candidate.shift_type }}
+                        </span>
+                        <svg
+                          v-if="selectedCandidates.some(c => c.emp_id === candidate.emp_id) && canVote"
+                          class="w-6 h-6 text-amber-600 flex-shrink-0"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 分頁控制 - 固定 -->
+            <div
+              v-if="totalPages > 1"
+              class="flex items-center justify-center space-x-2.5 mb-1.5 pb-1.5 border-b-2 border-gray-200 flex-shrink-0"
+            >
+              <button
+                @click="currentPage--"
+                :disabled="currentPage === 1"
+                class="px-3 py-1.5 bg-white border-2 border-amber-600 text-amber-600 rounded-lg font-bold disabled:border-gray-300 disabled:text-gray-300 disabled:cursor-not-allowed hover:bg-amber-600 hover:text-white transition-all text-xs"
+              >
+                ← 上一頁
+              </button>
+              <span class="text-gray-700 font-bold px-2.5 text-xs bg-amber-50 py-1.5 rounded-lg border border-amber-200">
+                第 {{ currentPage }}/{{ totalPages }} 頁
+              </span>
+              <button
+                @click="currentPage++"
+                :disabled="currentPage === totalPages"
+                class="px-3 py-1.5 bg-white border-2 border-amber-600 text-amber-600 rounded-lg font-bold disabled:border-gray-300 disabled:text-gray-300 disabled:cursor-not-allowed hover:bg-amber-600 hover:text-white transition-all text-xs"
+              >
+                下一頁 →
+              </button>
+            </div>
+
+            <!-- 選擇提示 + 投票按鈕域域 - 固定在底部 -->
+            <div class="flex-shrink-0 space-y-2.5 pt-1">
+              <!-- 選擇的候選人提示 - 精簡版，只顯示1位 -->
+              <div
+                v-if="selectedCandidates.length > 0 && canVote"
+                class="bg-gradient-to-r from-green-50 to-amber-50 rounded-lg border-2 border-amber-300 shadow-sm"
+              >
+                <!-- 標題欄 - 緊湊 -->
+                <div class="px-2 py-1 border-b border-amber-200">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-gray-700">
+                      已選 {{ selectedCandidates.length }}/{{ remainingVotes }}
+                    </span>
+                    <button 
+                      @click="selectedCandidates = []"
+                      class="text-xs text-red-500 hover:text-red-700 font-semibold hover:underline">
+                      清空
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- 候選人列表 - 只顯示1行，其餘滾動 -->
+                <div class="px-2 py-1 space-y-1 overflow-y-auto custom-scrollbar" style="max-height: 40px;">
+                  <div v-for="(candidate, index) in selectedCandidates" :key="candidate.emp_id"
+                       class="flex items-center justify-between bg-white px-2 py-1 rounded hover:bg-gray-50 transition-colors">
+                    <span class="text-xs font-bold text-gray-800 flex-1 truncate">
+                      {{ index + 1 }}. {{ candidate.name }} ({{ candidate.emp_id }})
+                    </span>
+                    <button 
+                      @click.stop="selectCandidate(candidate)"
+                      class="text-red-500 hover:text-red-700 text-xs px-1 hover:bg-red-50 rounded transition-colors ml-1 flex-shrink-0"
+                      title="取消選擇">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 操作按鈕 -->
+              <div class="flex space-x-2.5">
+                <button
+                  @click="submitVote"
+                  :disabled="selectedCandidates.length === 0 || !canVote"
+                  class="flex-1 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-bold text-base shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg
+                    class="w-5 h-5 inline mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  {{ canVote ? (selectedCandidates.length > 0 ? `確認投票 (${selectedCandidates.length})` : '請選擇候選人') : '投票功能已鎖定' }}
+                </button>
+
+                <button
+                  @click="goToAdmin"
+                  class="px-5 py-3 bg-white border-2 border-amber-600 text-amber-600 rounded-xl font-bold text-base hover:bg-amber-600 hover:text-white transition-all shadow-md hover:shadow-lg"
+                >
+                  <svg
+                    class="w-5 h-5 inline mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
+                  </svg>
+                  查看統計
+                </button>
+              </div>
+
+              <!-- 錯誤訊息 -->
+              <div
+                v-if="errorMessage"
+                class="bg-red-50 border-l-4 border-red-500 p-2.5 rounded-lg shadow-sm"
+              >
+                <div class="flex items-center">
+                  <svg
+                    class="w-5 h-5 text-red-500 mr-2 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <p class="text-red-800 font-semibold text-xs">{{ errorMessage }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- 右側結束 -->
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const { createApp } = Vue;
+
+      createApp({
+        data() {
+          return {
+            isLoading: true,
+            empId: "",
+            currentVoter: {
+              emp_id: "",
+              name: "",
+              shift_type: "",
+            },
+            candidates: [],
+            filteredCandidates: [],
+            candidateSearch: "",
+            selectedCandidates: [], // 改為陣列以支持多選
+            targetShift: "",
+            errorMessage: "",
+            leaderboard: [],
+            currentPage: 1,
+            itemsPerPage: 8,
+            canVote: true,
+            voteRestrictionMessage: "",
+            votesUsed: 0,
+            maxVotes: 1,
+          };
+        },
+        computed: {
+          totalPages() {
+            return Math.ceil(
+              this.filteredCandidates.length / this.itemsPerPage
+            );
+          },
+          paginatedCandidates() {
+            const start = (this.currentPage - 1) * this.itemsPerPage;
+            const end = start + this.itemsPerPage;
+            return this.filteredCandidates.slice(start, end);
+          },
+          remainingVotes() {
+            return this.maxVotes - this.votesUsed;
+          },
+          canSelectMore() {
+            return this.selectedCandidates.length < this.remainingVotes;
+          },
+          selectedCount() {
+            return this.selectedCandidates.length;
+          },
+          displayTargetShift() {
+            // targetShift 原始值仍是 'RR'/'輪班'（因來自 check_status API 的 shift_type）
+            // 但為了安全，也支援新值
+            const map = { 'RR': '2000', '輪班': '3000', '2000': '2000', '3000': '3000' };
+            return map[this.targetShift] || this.targetShift;
+          }
+        },
+        watch: {
+          candidateSearch(val) {
+            const search = val.toLowerCase();
+            this.filteredCandidates = this.candidates.filter(
+              (c) =>
+                c.name.toLowerCase().includes(search) ||
+                c.emp_id.toLowerCase().includes(search)
+            );
+            this.currentPage = 1;
+            if (this.canVote) {
+              this.selectedCandidates = [];
+            }
+          },
+        },
+
+        async mounted() {
+          console.log('=== Vue mounted 開始 ===');
+          const urlParams = new URLSearchParams(window.location.search);
+          const empId = urlParams.get("emp_id");
+
+          console.log('URL 參數 emp_id:', empId);
+
+          if (!empId) {
+            console.error('❌ 沒有 emp_id 參數，跳轉到登入頁');
+            window.location.href = "login.html";
+            return;
+          }
+
+          this.empId = empId;
+          console.log('設置 this.empId:', this.empId);
+          
+          console.log('開始執行 loadData...');
+          await this.loadData();
+          console.log('loadData 執行完成');
+          console.log('Vue 已掛載，currentVoter:', this.currentVoter);
+        },
+
+        methods: {
+          // 月度投票輔助函數
+          getCurrentYearMonth() {
+            const now = new Date();
+            return { year: now.getFullYear(), month: now.getMonth() + 1 };
+          },
+          
+          async loadData() {
+            const empId = this.empId.toUpperCase();
+            console.log('=== loadData 開始 ===');
+            console.log('empId:', empId);
+
+            try {
+              const { year, month } = this.getCurrentYearMonth();
+              console.log('查詢年月:', year, month);
+              
+              const statusUrl = `http://127.0.0.1:5000/api/check_status/${empId}?year=${year}&month=${month}`;
+              console.log('請求 URL:', statusUrl);
+              
+              const statusResponse = await fetch(statusUrl);
+              console.log('狀態響應:', statusResponse.status, statusResponse.ok);
+              
+              const statusData = await statusResponse.json();
+              console.log('狀態數據:', statusData);
+
+              if (!statusResponse.ok) {
+                console.error('❌ 狀態檢查失敗，跳轉到登入頁');
+                window.location.href = "login.html";
+                return;
+              }
+
+              console.log('設置 currentVoter...');
+              this.currentVoter = {
+                emp_id: empId,
+                name: statusData.name,
+                shift_type: statusData.shift_type,
+              };
+              console.log('currentVoter 已設置:', this.currentVoter);
+              
+              this.targetShift = statusData.shift_type === "2000" ? "3000" : "2000";
+              console.log('目標班別:', this.targetShift);
+
+              const { year: year2, month: month2 } = this.getCurrentYearMonth();
+              const empResponse = await fetch(
+                `http://127.0.0.1:5000/api/employees?year=${year2}&month=${month2}`
+              );
+              const employees = await empResponse.json();
+              console.log('員工總數:', employees.length);
+              
+              this.candidates = employees.filter(
+                (e) => e.shift_type === this.targetShift
+              );
+              console.log('候選人數量:', this.candidates.length);
+              
+              this.filteredCandidates = this.candidates;
+
+              if (statusData.can_vote) {
+                this.canVote = true;
+                this.voteRestrictionMessage = "";
+                this.votesUsed = statusData.votes_used || 0;
+                this.maxVotes = statusData.max_votes || 1;
+                console.log('✅ 可以投票，已用:', this.votesUsed, '配額:', this.maxVotes);
+              } else {
+                this.canVote = false;
+                this.voteRestrictionMessage =
+                  statusData.message || "投票功能暫時無法使用";
+                this.votesUsed = statusData.votes_used || 0;
+                this.maxVotes = statusData.max_votes || 1;
+                console.log('❌ 無法投票:', this.voteRestrictionMessage);
+              }
+
+              await this.loadStatistics();
+              this.isLoading = false;
+              console.log('=== loadData 完成 ===');
+            } catch (error) {
+              console.error("❌ loadData 失敗:", error);
+              console.error("錯誤堆疊:", error.stack);
+              alert('載入失敗：' + error.message + '\n即將返回登入頁');
+              window.location.href = "login.html";
+            }
+          },
+
+          logout() {
+            if (confirm("確定要登出嗎?")) {
+              window.location.href = "login.html";
+            }
+          },
+
+        goToAdmin() {
+          console.log('=== 點擊查看統計按鈕 ===');
+          console.log('1. this.empId:', this.empId);
+          console.log('2. this.currentVoter:', this.currentVoter);
+          
+          // 優先使用 currentVoter.emp_id，如果沒有就用 this.empId
+          const empId = this.currentVoter?.emp_id || this.empId;
+          console.log('3. 使用的 empId:', empId);
+          
+          if (!empId) {
+            console.error('❌ 無法獲取 emp_id');
+            alert('系統錯誤：無法獲取用戶資訊，請重新登入');
+            window.location.href = 'login.html';
+            return;
+          }
+          
+          const targetUrl = `admin_panel.html?emp_id=${empId}`;
+          console.log('4. 跳轉目標:', targetUrl);
+          console.log('5. 執行跳轉...');
+          
+          window.location.href = targetUrl;
+        },
+
+          selectCandidate(candidate) {
+            if (!this.canVote) return;
+            
+            const index = this.selectedCandidates.findIndex(c => c.emp_id === candidate.emp_id);
+            
+            if (index > -1) {
+              // 如果已經選擇，則取消選擇
+              this.selectedCandidates.splice(index, 1);
+              this.errorMessage = '';
+            } else {
+              // 如果未選擇，檢查是否還能選擇更多
+              if (this.canSelectMore) {
+                this.selectedCandidates.push(candidate);
+                this.errorMessage = '';
+              } else {
+                this.errorMessage = `最多只能選擇 ${this.remainingVotes} 位候選人`;
+                setTimeout(() => {
+                  this.errorMessage = '';
+                }, 3000);
+              }
+            }
+          },
+          async submitVote() {
+            // 檢查日期限制（每月10-18號才能投票）
+            const today = new Date().getDate();
+            if (today < 10 || today > 18) {
+              Swal.fire({
+                title: "⏳ 投票期間限制",
+                html: `投票期間為每月 <strong>10-18 號</strong><br><br>今天是 <strong class="text-2xl text-red-600">${today} 號</strong><br><br>請於投票期間內再來投票`,
+                icon: "warning",
+                confirmButtonColor: "#d97706",
+                confirmButtonText: "知道了",
+                customClass: {
+                  popup: "rounded-2xl",
+                  confirmButton: "rounded-lg px-6 py-3",
+                },
+              });
+              return;
+            }
+            if (!this.canVote) {
+              this.errorMessage = this.voteRestrictionMessage;
+              return;
+            }
+
+            if (this.selectedCandidates.length === 0) {
+              this.errorMessage = "請至少選擇一位候選人";
+              return;
+            }
+
+            // 生成候選人名單的 HTML
+            const candidatesList = this.selectedCandidates
+              .map((c, i) => `${i + 1}. <strong>${c.name}</strong> (${c.emp_id})`)
+              .join('<br>');
+
+            const result = await Swal.fire({
+              title: "確認投票",
+              html: `確定要投票給以下 <strong class="text-2xl text-amber-600">${this.selectedCandidates.length}</strong> 位候選人嗎?<br><br>
+                    <div class="text-left bg-amber-50 p-4 rounded-lg my-3">
+                      ${candidatesList}
+                    </div>
+                    <span class="text-red-600">⚠️ 投票後無法修改!</span>`,
+              icon: "question",
+              showCancelButton: true,
+              confirmButtonColor: "#4F46E5",
+              cancelButtonColor: "#6B7280",
+              confirmButtonText: "確認投票",
+              cancelButtonText: "取消",
+              customClass: {
+                popup: "rounded-2xl",
+                confirmButton: "rounded-lg px-6 py-3",
+                cancelButton: "rounded-lg px-6 py-3",
+              },
+            });
+
+            if (!result.isConfirmed) {
+              return;
+            }
+
+            try {
+              const { year, month } = this.getCurrentYearMonth();
+              const response = await fetch("http://127.0.0.1:5000/api/vote", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  voter_emp_id: this.currentVoter.emp_id,
+                  voted_for_emp_ids: this.selectedCandidates.map(c => c.emp_id),
+                  year: year,
+                  month: month,
+                }),
+              });
+
+              const data = await response.json();
+
+              if (response.ok) {
+                // 直接使用後端返回的票數
+                this.votesUsed = data.votes_used;
+                this.maxVotes = data.max_votes;
+                const remainingVotes = this.maxVotes - this.votesUsed;
+                
+                console.log('投票成功：votes_used:', this.votesUsed, 'max_votes:', this.maxVotes, 'remaining:', remainingVotes);
+                
+                // 顯示投票成功訊息
+                await Swal.fire({
+                  title: "✅ 投票成功!",
+                  html: `感謝您的參與<br><br>您已成功投出 <strong class="text-amber-600">${this.selectedCandidates.length}</strong> 票<br>
+                        本月已使用 <strong class="text-amber-600">${this.votesUsed}/${this.maxVotes}</strong> 票`,
+                  icon: "success",
+                  timer: 2000,
+                  showConfirmButton: false,
+                  customClass: {
+                    popup: "rounded-2xl",
+                  },
+                });
+
+                // 清空選擇
+                this.selectedCandidates = [];
+                this.errorMessage = "";
+
+                // 檢查是否還有剩餘票數
+                if (remainingVotes > 0) {
+                  // ✅ 改用 preConfirm 確保跳轉執行
+                  const continueResult = await Swal.fire({
+                    title: "📊 還有剩餘票數",
+                    html: `您本月還有 <strong class="text-2xl text-amber-600">${remainingVotes}</strong> 票可以投<br><br>
+                          <div class="text-gray-600 text-sm mt-3">
+                            <p>💡 您可以選擇：</p>
+                            <p class="mt-2">• <strong>查看統計</strong>：前往統計頁面查看投票結果</p>
+                            <p>• <strong>繼續投票</strong>：為其他候選人投票</p>
+                          </div>`,
+                    icon: "info",
+                    showCancelButton: true,
+                    showDenyButton: false,
+                    confirmButtonColor: "#f59e0b",
+                    cancelButtonColor: "#6366f1",
+                    confirmButtonText: "📊 查看統計",
+                    cancelButtonText: "🗳️ 繼續投票",
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    customClass: {
+                      popup: "rounded-2xl",
+                      confirmButton: "rounded-lg px-6 py-3",
+                      cancelButton: "rounded-lg px-6 py-3",
+                    },
+                  });
+
+                  console.log('用戶選擇結果:', continueResult);
+
+                  // ✅ 明確處理兩種情況
+                  if (continueResult.isConfirmed) {
+                    // 查看統計 - 立即跳轉
+                    console.log('=== 用戶選擇查看統計 ===');
+                    const targetUrl = `admin_panel.html?emp_id=${this.currentVoter.emp_id}`;
+                    console.log('跳轉目標:', targetUrl);
+                    setTimeout(() => {
+                      window.location.href = targetUrl;
+                    }, 300);
+                  } else {
+                    // 繼續投票
+                    console.log('=== 用戶選擇繼續投票 ===');
+                    await this.loadData();
+                    this.canVote = true;
+                    
+                    Swal.fire({
+                      title: "繼續投票",
+                      text: `請選擇您要投票的候選人 (剩餘 ${remainingVotes} 票)`,
+                      icon: "success",
+                      timer: 1500,
+                      showConfirmButton: false,
+                      customClass: {
+                        popup: "rounded-2xl",
+                      },
+                    });
+                  }
+                } else {
+                  // 已用完所有票數，前往統計頁面
+                  console.log('=== 所有票數已用完 ===');
+                  await Swal.fire({
+                    title: "🎉 已投完所有票數!",
+                    text: "您本月的投票配額已用完，即將前往統計頁面",
+                    icon: "success",
+                    timer: 2000,
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    customClass: {
+                      popup: "rounded-2xl",
+                    },
+                  });
+                  
+                  // 強制跳轉
+                  setTimeout(() => {
+                    const targetUrl = `admin_panel.html?emp_id=${this.currentVoter.emp_id}`;
+                    console.log('強制跳轉到:', targetUrl);
+                    window.location.href = targetUrl;
+                  }, 300);
+                }
+              } else {
+                this.errorMessage = data.error;
+
+                Swal.fire({
+                  title: "投票失敗",
+                  text: data.error,
+                  icon: "error",
+                  confirmButtonColor: "#4F46E5",
+                  confirmButtonText: "確定",
+                  customClass: {
+                    popup: "rounded-2xl",
+                    confirmButton: "rounded-lg px-6 py-3",
+                  },
+                });
+              }
+            } catch (error) {
+              console.error("投票錯誤:", error);
+              this.errorMessage = "投票失敗,請稍後再試";
+
+              Swal.fire({
+                title: "系統錯誤",
+                text: "投票失敗,請稍後再試",
+                icon: "error",
+                confirmButtonColor: "#4F46E5",
+                confirmButtonText: "確定",
+                customClass: {
+                  popup: "rounded-2xl",
+                  confirmButton: "rounded-lg px-6 py-3",
+                },
+              });
+            }
+          },
+          async loadStatistics() {
+            try {
+              const response = await fetch(
+                "http://127.0.0.1:5000/api/statistics"
+              );
+              const data = await response.json();
+
+              // 將targetShift轉換為後端使用的格式
+              const shiftMap = {
+                '2000': 'RR',
+                '3000': '輪班',
+                'RR': 'RR',
+                '輪班': '輪班'
+              };
+              const targetShiftFormatted = shiftMap[this.targetShift] || this.targetShift;
+              
+              console.log('過濾條件:', 'targetShift =', this.targetShift, '->', targetShiftFormatted);
+              console.log('原始統計數據:', data.vote_stats);
+
+              this.leaderboard = data.vote_stats
+                .filter((stat) => stat.shift_type === targetShiftFormatted)
+                .slice(0, 5);
+              
+              console.log('過濾後的排行榜:', this.leaderboard);
+            } catch (error) {
+              console.error("載入統計失敗", error);
+            }
+          },
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>

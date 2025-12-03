@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>後台登入系統</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="static/js/vue.global.js"></script>
+    <script src="static/js/axios.min.js"></script>
+    <link href="static/css/tailwind.min.css" rel="stylesheet">
+    <link href="static/css/Iansui-Regular.ttf" rel="stylesheet">
+    <style>
+    body {
+      background-color: #f9fafb;
+    }
+    @font-face {
+        font-family: 'Iansui';
+        src: url('static/css/Iansui-Regular.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+    }
+
+    .font-iansui {
+        font-family: 'Iansui', sans-serif;
+    }
+    input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 1px #3b82f6;
+    }
+    .fade-out {
+        opacity: 0;
+        transform: scale(1.05);
+        transition: all 0.8s ease;
+    }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+
+    <div id="app" class="font-iansui">
+        <div ref="loginCard" class="w-full max-w-sm bg-white border border-gray-200 p-8 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold text-gray-700 text-center mb-6">系統登入</h2>
+
+            <div class="space-y-4">
+                <input
+                    v-model="username"
+                    type="text"
+                    placeholder="使用者名稱"
+                    class="w-full px-4 py-2 border border-gray-300 rounded text-sm"
+                />
+                <input
+                    v-model="password"
+                    type="password"
+                    @keyup.enter="login"
+                    placeholder="密碼"
+                    class="w-full px-4 py-2 border border-gray-300 rounded text-sm"
+                />
+                <button
+                    @click="login"
+                    class="w-full py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm font-medium"
+                    >
+                    登入
+                </button>
+            </div>
+            <p v-if="errorMessage" class="mt-4 text-sm text-red-500 text-center">{{ errorMessage }}</p>
+        </div>
+    </div>
+
+    <script src="static/js/index.js"></script>
+
+</body>
+</html>

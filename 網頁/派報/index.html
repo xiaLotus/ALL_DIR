@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>派報系統</title>
+    <script src="static/js/vue.global.js"></script>
+    <script src="static/js/Sortable.min.js"></script>
+    <script src="static/js/vuedraggable.umd.js"></script>
+    <script src="static/js/tailwinds.js"></script>
+    <script src="static/js/config.js"></script>
+    <link rel="icon" href="static/icon/pen.png" type="image/x-icon" />
+</head>
+
+<body class="dark bg-dark-bg text-dark-text">
+<div id="app">
+    <div class="container mx-auto p-6 h-full flex flex-col">
+        <!-- 群組標題 -->
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-dark-text">TraceIn/TraceOut 派報系統</h1>
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-dark-text">群組:</label>
+                    <select v-model="currentGroupId" @change="switchGroup" class="bg-dark-card border border-dark-border rounded-md px-3 py-2 text-dark-text">
+                        <option v-for="group in groups" :key="group.id" :value="group.id">
+                            {{ group.name }}
+                            </option>
+                    </select>
+                </div>
+                <button @click="showNewGroupModal = true" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700" >新增群組</button>
+                <button v-if="groups.length > 1" @click="deleteCurrentGroup" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">刪除群組</button>
+                <button @click="openFunctionDetail" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700">使用規範</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <!-- 左側表單 -->
+            <div ref="leftForm" class="bg-dark-card border border-dark-border rounded-lg">
+                <div class="p-6 border-b border-dark-border">
+                    <h2 class="text-xl font-semibold text-dark-text">使用群組 - {{ currentGroup.name }}</h2>
+                </div>
+                <div class="p-6 space-y-4">
+                    <!-- 標題 -->
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-dark-text block">資料標題</label>
+                        <input v-model="formTitle" type="text" placeholder="請輸入標題" class="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-md text-dark-text text-lg"/>
+                    </div>
+
+                    <!-- 全欄位統一渲染 -->
+                    <div v-for="field in fieldNames" :key="field.key" class="space-y-2">
+                        <label :for="field.key" class="text-sm font-medium text-dark-text block">{{ field.label }}</label>
+
+                        <!-- Select -->
+                        <template v-if="field.type === 'select'">
+                            <select v-model="formData[field.key]" class="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-md text-dark-text">
+                                <option disabled value="">請選擇 {{ field.label }}: {{ field.options.join(' / ') }}</option>
+                                <option v-for="option in field.options" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </template>
+
+                        <!-- Tags -->
+                        <template v-else-if="field.type === 'tags'">
+                            <div class="flex flex-wrap gap-2">
+                                <span v-for="(tag, index) in formData[field.key]" :key="index"class="flex items-center bg-blue-600 text-white px-3 py-1 rounded-full" >
+                                    {{ tag }}
+                                    <button @click="removeTag(field.key, index)" class="ml-2">
+                                        &times;
+                                    </button>
+                                </span>
+                            </div>
+                            <input v-model="tagInput[field.key]" @keyup.enter="addTag(field.key)" type="text" placeholder="輸入後按 Enter 進入儲存空間" class="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-md text-dark-text"/>
+                        </template>
+
+                        <!-- Input -->
+                        <template v-else>
+                            <input :id="field.key" v-model="formData[field.key]" type="text" :placeholder="'請輸入 ' + field.label" class="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-md text-dark-text"/>
+                        </template>
+                    </div>
+
+                    <div class="pt-6 space-y-3">
+                        <button @click="handleSubmit" class="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700">確認</button>
+                        <button @click="clearForm" class="w-full bg-gray-600 text-white py-2 rounded-md hover:bg-gray-700">清空表單</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側已提交資料 -->
+            <div class="bg-dark-card border border-dark-border rounded-lg flex flex-col h-full">
+                <div class="p-6 border-b border-dark-border flex justify-between items-center">
+                    <h2 class="text-xl font-semibold text-dark-text">{{ currentGroup.name }} - 已提交資料 ({{ currentSubmittedData.length }} 組)</h2>
+                    <button v-if="currentSubmittedData.length > 0" @click="clearHistory" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">清空記錄</button>
+                </div>
+
+                <div class="p-6 overflow-y-auto" :style="{ maxHeight: rightMaxHeight + 'px' }">
+                    <div v-if="currentSubmittedData.length === 0" class="text-center text-dark-muted py-8">尚無提交資料</div>
+
+                    <!-- 拖曳排序 -->
+                    <div v-for="(records, groupKey) in groupedSubmittedData" :key="groupKey" class="mb-6">
+                        <h3 class="text-lg font-bold text-white mb-2">每 {{ groupKey }} 小時發送</h3>
+
+                        <draggable :list="records" item-key="timestamp" animation="200" class="space-y-4" @end="onDragEndByGroup(groupKey)">
+                            <template #item="{ element, index }">
+                                <div class="bg-dark-bg rounded-lg border border-dark-border cursor-pointer">
+                                    <div @click="toggleDetails(groupKey, index)" class="flex justify-between items-center p-4">
+                                        <h3 class="text-lg font-medium text-dark-text">{{ element.title || `第 ${index + 1} 組資料` }}</h3>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-xs text-dark-muted">{{ element.timestamp }}</span>
+                                            <button @click.stop="deleteRecordByGroup(groupKey, index)" class="text-red-400 hover:text-red-300 text-xs">刪除</button>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="activeIndexByGroup[groupKey] === index" class="p-4 border-t border-dark-border">
+                                        <div class="grid grid-cols-1 gap-2">
+                                            <div v-for="field in fieldNames" :key="field.key" class="flex items-center space-x-3">
+                                                <span class="text-sm font-medium text-dark-muted min-w-[60px]">{{ field.label }}:</span>
+                                                <span class="text-sm text-dark-text bg-dark-card px-3 py-1 rounded border border-dark-border flex-1">
+                                                <template v-if="field.key === 'item4'">{{ element.item4.length > 0 ? element.item4.join(', ') : '未填寫' }}</template>
+                                                <template v-else-if="field.key === 'item5'">{{ element.item5.length > 0 ? element.item5.join(', ') : '未填寫' }}</template>
+                                                <template v-else-if="field.key === 'item8'">{{ element.item8.length > 0 ? element.item8.join(', ') : '未填寫' }}</template>
+                                                <template v-else-if="field.key === 'item10'">{{ element.item10.length > 0 ? element.item10.join(', ') : '未填寫' }}</template>
+                                                <template v-else-if="field.key === 'item14'">{{ element.item14.length > 0 ? element.item14.join(', ') : '未填寫' }}</template>
+                                                <template v-else-if="field.key === 'item15'">{{ element.item15.length > 0 ? element.item15.join(', ') : '未填寫' }}</template>
+                                                <template v-else>
+                                                    {{ element[field.key] || '未填寫' }}
+                                                </template>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </draggable>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增群組 -->
+    <div v-if="showNewGroupModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-dark-card border border-dark-border rounded-lg p-6 w-96">
+            <h3 class="text-lg font-semibold text-dark-text mb-4">新增群組</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm font-medium text-dark-text block mb-2">群組名稱</label>
+                    <input v-model="newGroupName" type="text" placeholder="請輸入群組名稱" class="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-md text-dark-text" @keyup.enter="createNewGroup"/>
+                </div>
+                <div class="flex space-x-3">
+                    <button @click="createNewGroup" :disabled="!newGroupName.trim()" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed">建立</button>
+                    <button @click="cancelNewGroup" class="flex-1 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="showFunctionDetail" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-8 w-[900px] max-h-[90vh] overflow-y-auto shadow-2xl">
+            <h3 class="text-3xl font-bold text-white mb-8 text-center border-b border-dark-border pb-4">使用欄位完整說明</h3>
+
+            <div class="grid grid-cols-1 gap-6">
+                <!-- 1. 資訊標題 -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">1. 資訊標題</div>
+                    <div class="text-sm text-gray-300">範例：【F1 K22-8F 3390】</div>
+                </div>
+                <!-- 2. 投料場別 (Plant) -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">2. 投料場別 (Plant)</div>
+                    <div class="text-sm text-gray-300">選擇 F1 / F3 / F5</div>
+                </div>
+                <!-- 3. 作業場別 (Proc Plant) -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">3. 作業場別 (Proc Plant)</div>
+                    <div class="text-sm text-gray-300">選擇 F1 / F3 / F5</div>
+                </div>
+                <!-- 4. 客戶碼 (需大寫) -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">4. 客戶碼 (需大寫)</div>
+                    <div class="text-sm text-gray-300">範例：TZ</div>
+                </div>
+                <!-- 5. 站點(Operation) -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">5. 站點(Operation)</div>
+                    <div class="text-sm text-gray-300 mb-4">範例：3400</div>
+                    <div class="text-sm text-amber-400 font-semibold mb-1">
+                        注意事項：
+                    </div>
+                    <ul class="list-disc list-inside text-sm text-gray-300">
+                        <li>如多個，輸入完一站點後，按下Enter進入儲存空間，每輸入一個再按下Enter</li>
+                        <li>此欄位可搭配 sumK Function</li>
+                        <li>若需計算累計 K 數，請在「sumK 累計的站點」中填寫相應站點資訊</li>
+                    </ul>
+                </div>
+                <!-- 6. 作業機台編號(M/C ID) -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">6. 作業機台編號(M/C ID)</div>
+                    <div class="text-sm text-gray-300 mb-4">範例：3390-A52</div>
+                    <div class="text-sm text-amber-400 font-semibold mb-1">注意事項：</div>
+                    <ul class="list-disc list-inside text-sm text-gray-300">
+                        <li>
+                            如多個，輸入完mcid後，按下Enter進入儲存空間，每輸入一個再按下Enter
+                        </li>
+                    </ul>
+                </div>
+                <!-- 7. 使用的內部運行 Function -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">7. 使用的內部運行 Function</div>
+                    <div class="text-sm text-gray-300 mb-4">usegoal、NAgoal、nonegoal、sumK、delivery</div>
+
+                    <!-- 這段是你要新增的功能介紹說明 -->
+                    <div class="text-sm text-gray-300 mb-4">
+                        每一個運行 Function
+                        會根據資料進行不同型態的統計與報表輸出，請依據實際需求選擇對應代號進行運算設定。(暫定)
+                    </div>
+
+                    <!-- usegoal 注意事項 -->
+                    <div class="text-lg text-amber-400 font-semibold mb-2">usegoal</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">
+                        範例：A51(Goal: 9) IN:18 OUT:20<br />
+                        如果要使用最基礎的個別站點及mcid，要輸出Goal，就直接使用這個
+                        Function
+                    </div>
+
+                    <!-- NAgoal 注意事項 -->
+                    <div class="text-lg text-amber-400 font-semibold mb-2">NAgoal</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">
+                        範例：A52(Goal: NA) IN:18 OUT:20<br />
+                        如果要使用最基礎的個別站點及mcid，不輸出Goal，就直接使用這個
+                        Function
+                    </div>
+
+                    <!-- sumK 注意事項 -->
+                    <div class="text-lg text-amber-400 font-semibold mb-2">sumK</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">
+                        範例：3190 1.406K<br />
+                        如果要計算K數，就使用這個 Function，如果要搭配站點加總，請往下選擇(比如：3191+3192)
+                    </div>
+
+                    <!-- delivery 注意事項 -->
+                    <div class="text-lg text-amber-400 font-semibold mb-2">delivery</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">
+                        範例：A05 IN: 11 OUT: 14 (派貨次數: 11)(每小時平均: 3.667) <br >
+                        這個選項不支援 Goal 設置
+                    </div>
+
+                    <!-- nonegoal 注意事項 -->
+                    <div class="text-lg text-amber-400 font-semibold mb-2">nonegoal</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">
+                        範例：5303 IN:7 OUT: 8 <br >
+                        這個選項沒有多餘的資訊，只有 IN/OUT
+                    </div>
+                </div>
+                <!-- 8. sumK Funtion 累計的K數站點 -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">8. sumK Funtion 累計的K數站點</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        站點相加，比如 3191+3192，輸入完後按下 Enter，後台會進行解析
+                    </div>
+                </div>
+                <!-- 9. 是否擬定 Goal -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">9. 是否擬定 Goal</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        是否使用 Goal，如果需要就必須要填寫
+                    </div>
+                </div>
+                <!-- 10. Goal(可多個，但要按照排列；如果無，則默認 NA，選填) -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">10. Goal(可多個，但要按照排列；如果無，則默認 NA，選填)</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        如第9項為Y，則可以使用 各別的 Goal，請按照站點 or mcid 排序輸入相應的 Goal 
+                    </div>
+                </div>
+                <!-- 11. 是否顯示總 Total -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">11. 是否顯示總 Total</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        是否加總Total
+                    </div>
+                </div>
+                <!-- 12. 是否在總 Total 顯示 Goal -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">12. 是否在總 Total 顯示 Goal</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        是否在總 Total 顯示 Goal
+                    </div>
+                </div>
+                <!-- 13. 總 Total 的 Goal -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">13. 總 Total 的 Goal</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        範例 Total (Goal:76.5) IN: 81 OUT: 84 <br>
+                        這邊就是有設置 Total + Goal
+                    </div>
+                </div>
+                <!-- 14. 手動機台 -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">14. 手動機台</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        按下Enter重複輸入手動機台(3670-3450-3800)
+                    </div>
+                </div>
+                <!-- 15. 自動機台 -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">15. 自動機台</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        按下Enter重複輸入自動機台(3670-3450-3800)
+                    </div>
+                </div>
+                <!-- 16. 手動+自動機台的 Goal -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">16. 手動+自動機台的 Goal</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        手動+自動機台的 Goal<br>
+                        純自動機台 Total (Goal:70) IN: 59 OUT: 55<br>
+                        手動+自動機台 Total (Goal:70) IN: 66 OUT: 60
+                    </div>
+                </div>
+                <!-- 17. 幾小時發送一次 -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">17. 幾小時發送一次</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        按照小時來當作分群基準
+                    </div>
+                </div>
+                <!-- 18. 群組ID -->
+                <div class="p-5 bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow border border-dark-border">
+                    <div class="text-lg font-semibold mb-2 text-cyan-400">18. 群組ID</div>
+                    <div class="list-disc list-inside text-sm text-gray-300 mb-4">               
+                        請自行查找，位置在每個群組的右上角，點擊後，點擊群組設定，名稱欄位處，右方有個 
+                        <span class="text-red-400 font-semibold">Copy</span>  
+                        的圖樣，點擊擊可複製ID
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-center mt-10">
+                <button @click="cancelShowFunctionDetail"class="bg-gradient-to-r from-gray-600 to-gray-700 text-white py-3 px-10 rounded-xl hover:brightness-110 transition-all">關閉</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="static/js/main.js"></script>
+</body>
+</html>

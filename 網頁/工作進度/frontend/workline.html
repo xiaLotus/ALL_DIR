@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>多任務留言板</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="../static/js/vue.global.js"></script>
+  <link href="../static/css/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../static/css/element-index.css" />
+  <script src="../static/js/element-index.full.js"></script>
+  <script src="../static/js/axios.min.js"></script> <!-- ✅ 加這一行 -->
+  <script src="../static/js/Sortable.min.js"></script>
+  <script src="../static/js/vuedraggable.umd.js"></script>
+
+  <style>
+    .prose img {
+      max-width: 100%;
+      border-radius: 0.5rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+      img.thumbnail {
+        max-width: 120px;
+        max-height: 120px;
+        cursor: zoom-in;
+        transition: 0.2s;
+        border-radius: 0.5rem;
+      }
+      .img-popup {
+        position: fixed;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 9999;
+        background: rgba(0,0,0,0.9);
+        padding: 1rem;
+        border-radius: 1rem;
+      }
+      .img-popup img {
+        max-height: 80vh;
+        max-width: 90vw;
+        border-radius: 0.5rem;
+      }
+      @keyframes fadeIn {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.6s ease-out forwards;
+}
+  </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+  <div id="app" class="flex h-screen">
+      <div id="welcomeOverlay" class="fixed inset-0 z-50 bg-gray-900 flex items-center justify-center" v-if="showWelcome">
+        <h1 class="text-3xl font-bold text-white opacity-0 animate-fadeIn">{{ welcomeText }}</h1>
+      </div>
+    <!-- Sidebar -->
+    <div class="w-64 bg-gray-800 p-4 overflow-y-auto">
+      <h2 class="text-xl font-bold mb-4">任務列表</h2>
+      <input v-model="newTaskTitle" class="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded text-white" placeholder="新增任務名稱" />
+      <button @click="addTask" class="w-full mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded">新增今日工作</button>
+      <draggable 
+        :list="reversedTasks"
+        item-key="id" 
+        handle=".drag-handle" 
+        class="space-y-2"
+        @end="syncReversedToTasks"
+        >
+        <template #item="{ element, index }">
+            <li
+              @click="selectTask(tasks.length - 1 - index)"  
+              :class="[selectedTaskIndex === (tasks.length - 1 - index) ? 'bg-blue-700' : 'bg-gray-700', 'cursor-pointer p-2 rounded hover:bg-gray-600 flex justify-between items-center']"
+            >
+            <span>{{ element.title }}</span>
+            <span class="drag-handle cursor-move text-gray-400">☰</span>
+          </li>
+        </template>
+      </draggable>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 overflow-y-auto">
+      <div v-if="selectedTaskIndex !== null">
+        <h1 class="text-2xl font-bold mb-4">{{ currentTask.title }}</h1>
+
+        <div
+          id="editor"
+          contenteditable="true"
+          @paste="handlePaste"
+          class="w-full min-h-[8rem] p-4 bg-gray-800 border border-yellow-400 rounded text-white overflow-auto mb-4"
+        ></div>
+
+        <button
+          @click="submitComment"
+          class="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded mb-6"
+        >
+          新增更新
+        </button>
+
+        <el-timeline>
+          <el-timeline-item
+            v-for="(entry, i) in timelineOrdered"
+            :key="i"
+            :timestamp="entry.timestamp"
+            placement="top"
+            type="primary"
+          >
+          <el-card
+            shadow="never"
+            :body-style="{ backgroundColor: '#1F2937', padding: '1rem' }"
+            :style="{ backgroundColor: '#1F2937', border: '1px solid #374151', color: 'white' }"
+            @click="entry.isEditing = true"
+          >
+          <template v-if="entry.isEditing">
+              <div
+                contenteditable
+                class="min-h-[6rem] p-2 bg-gray-700 border border-gray-500 rounded outline-none"
+                :ref="el => entry.editRef = el"
+                @blur="saveEntry(entry)"
+                @paste="handlePaste"
+                @click="handleImageClick"
+                v-html="entry.rawHtml"
+              ></div>
+              <div class="flex justify-end mt-4">
+                <button @click.stop="deleteEntry(entry)" class="text-sm text-red-400 hover:text-red-200">
+                  🗑️ 刪除
+                </button>
+              </div>
+          </template>
+
+            <template v-else>
+              <div v-html="entry.html" class="prose prose-invert max-w-none"></div>
+                <div class="flex justify-end mt-4">
+                <button @click.stop="deleteEntry(entry)" class="text-sm text-red-400 hover:text-red-200">
+                  🗑️ 刪除
+                </button>
+              </div>
+            </template>
+          </el-card>
+
+          </el-timeline-item>
+        </el-timeline>
+
+        <div v-if="popupImage" class="img-popup" @click="popupImage = null">
+          <img :src="popupImage" />
+        </div>
+      </div>
+      <div v-else class="text-lg text-gray-400">← 請選擇一個任務</div>
+    </div>
+  </div>
+
+  <script src="../static/js/func/workline.js"></script>
+</body>
+</html>

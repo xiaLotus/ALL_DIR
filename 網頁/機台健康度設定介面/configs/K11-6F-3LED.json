@@ -1,0 +1,15 @@
+[
+  {
+    "TIME": "2025-04-22",
+    "Plant": "ASEF1",
+    "Site": "K11-6F",
+    "IP": "172.22.66.33",
+    "MachineID": "3350-D50",
+    "Port": 502,
+    "DI_Map": {
+      "RED": 7,
+      "YELLOW": 8,
+      "GREEN": 9
+    }
+  }
+]

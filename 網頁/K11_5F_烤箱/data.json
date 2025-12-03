@@ -1,0 +1,195 @@
+{
+  "Bank1": {
+    "K19": {
+      "status": "open",
+      "history": [
+        "測試",
+        "test"
+      ]
+    },
+    "K09": {
+      "status": "closed",
+      "history": []
+    },
+    "K13": {
+      "status": "open",
+      "history": []
+    },
+    "K11": {
+      "status": "closed",
+      "history": []
+    },
+    "K21": {
+      "status": "open",
+      "history": []
+    },
+    "K32": {
+      "status": "closed",
+      "history": []
+    },
+    "K10": {
+      "status": "open",
+      "history": []
+    },
+    "K14": {
+      "status": "closed",
+      "history": []
+    },
+    "K12": {
+      "status": "open",
+      "history": []
+    },
+    "K22": {
+      "status": "closed",
+      "history": [
+        {
+          "CreateDateTime": "2025-08-07 13:12:17",
+          "Operation": "啟用",
+          "UserName": "施文旌",
+          "UserId": "K16639",
+          "Remark": "機構：3380-K22\r\n原因：test open"
+        },
+        {
+          "CreateDateTime": "2025-08-02 14:23:21",
+          "Operation": "停用",
+          "UserName": "施文旌",
+          "UserId": "K16639",
+          "Remark": "機構：3380-K22\r\n原因：test"
+        },
+        {
+          "CreateDateTime": "2025-07-05 20:39:50",
+          "Operation": "啟用",
+          "UserName": "許鈺瑋",
+          "UserId": "K18791",
+          "Remark": "機構：3380-K22\r\n原因：ok"
+        },
+        {
+          "CreateDateTime": "2025-04-24 08:34:15",
+          "Operation": "啟用",
+          "UserName": "許鈺瑋",
+          "UserId": "K18791",
+          "Remark": "機構：3380-K22\r\n原因：ee test ok"
+        },
+        {
+          "CreateDateTime": "2025-04-16 01:20:08",
+          "Operation": "停用",
+          "UserName": "林郁祥",
+          "UserId": "C8849",
+          "Remark": "機構：3380-K22\r\n原因：OTMS 無法連線 取得溫度"
+        },
+        {
+          "CreateDateTime": "2025-08-02 14:23:21",
+          "Operation": "停用",
+          "UserName": "施文旌",
+          "UserId": "K16639",
+          "Remark": "機構：3380-K22\r\n原因：test"
+        },
+        {
+          "CreateDateTime": "2025-07-05 20:39:50",
+          "Operation": "啟用",
+          "UserName": "許鈺瑋",
+          "UserId": "K18791",
+          "Remark": "機構：3380-K22\r\n原因：ok"
+        },
+        {
+          "CreateDateTime": "2025-04-24 08:34:15",
+          "Operation": "啟用",
+          "UserName": "許鈺瑋",
+          "UserId": "K18791",
+          "Remark": "機構：3380-K22\r\n原因：ee test ok"
+        },
+        {
+          "CreateDateTime": "2025-04-16 01:20:08",
+          "Operation": "停用",
+          "UserName": "林郁祥",
+          "UserId": "C8849",
+          "Remark": "機構：3380-K22\r\n原因：OTMS 無法連線 取得溫度"
+        },
+        {
+          "CreateDateTime": "2025-04-15 09:22:46",
+          "Operation": "啟用",
+          "UserName": "吳和諺",
+          "UserId": "G7083",
+          "Remark": "機構：3380-K22\r\n原因：OK"
+        },
+        {
+          "CreateDateTime": "2025-08-07 13:12:17",
+          "Operation": "啟用",
+          "UserName": "施文旌",
+          "UserId": "K16639",
+          "Remark": "機構：3380-K22\r\n原因：test open"
+        },
+        {
+          "CreateDateTime": "2025-08-02 14:23:21",
+          "Operation": "停用",
+          "UserName": "施文旌",
+          "UserId": "K16639",
+          "Remark": "機構：3380-K22\r\n原因：test"
+        },
+        {
+          "CreateDateTime": "2025-07-05 20:39:50",
+          "Operation": "啟用",
+          "UserName": "許鈺瑋",
+          "UserId": "K18791",
+          "Remark": "機構：3380-K22\r\n原因：ok"
+        },
+        {
+          "CreateDateTime": "2025-04-24 08:34:15",
+          "Operation": "啟用",
+          "UserName": "許鈺瑋",
+          "UserId": "K18791",
+          "Remark": "機構：3380-K22\r\n原因：ee test ok"
+        },
+        {
+          "CreateDateTime": "2025-04-16 01:20:08",
+          "Operation": "停用",
+          "UserName": "林郁祥",
+          "UserId": "C8849",
+          "Remark": "機構：3380-K22\r\n原因：OTMS 無法連線 取得溫度"
+        }
+      ]
+    }
+  },
+  "Bank2": {
+    "405": {
+      "status": "closed",
+      "history": []
+    },
+    "K07": {
+      "status": "open",
+      "history": []
+    },
+    "K05": {
+      "status": "closed",
+      "history": []
+    },
+    "K17": {
+      "status": "open",
+      "history": []
+    },
+    "419": {
+      "status": "closed",
+      "history": []
+    },
+    "406": {
+      "status": "open",
+      "history": []
+    },
+    "K08": {
+      "status": "closed",
+      "history": []
+    },
+    "K06": {
+      "status": "open",
+      "history": []
+    },
+    "K18": {
+      "status": "closed",
+      "history": []
+    },
+    "420": {
+      "status": "open",
+      "history": []
+    }
+  }
+}

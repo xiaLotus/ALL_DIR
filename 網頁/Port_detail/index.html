@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>網站 Port 管控清單</title>
+  <script src="static/js/vue.global.prod.js"></script>
+  <script src="static/js/tailwinds.js"></script>
+  <link rel="icon" href="static/picture/global.png" type="image/x-icon">
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
+</head>
+<body class="dark bg-gray-900 text-white min-h-screen py-10">
+  <div id="app" class="w-full max-w-[95%] mx-auto bg-gray-800 shadow-xl rounded-xl p-6">
+    <h2 class="text-3xl font-semibold text-white mb-6 border-b border-gray-600 pb-2 flex items-center">
+      🌐 網站 Port 管控清單
+    </h2>
+
+    <!-- 表格 -->
+    <div class="overflow-x-auto rounded-lg">
+      <table class="min-w-full text-sm text-white border border-gray-600">
+        <thead class="bg-gray-700 text-gray-200 uppercase text-xs tracking-wider">
+          <tr>
+            <th class="p-3 border border-gray-600 w-1/5">網站名稱</th>
+            <th class="p-3 border border-gray-600 w-2/5">網址 URL</th>
+            <th class="p-3 border border-gray-600 text-center w-1/12">前端 Port</th>
+            <th class="p-3 border border-gray-600 text-center w-1/12">後端 Port</th>
+            <th class="p-3 border border-gray-600 text-center w-1/12">防火牆</th>
+            <th class="p-3 border border-gray-600 text-center w-1/12">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(item, index) in pagedData" :key="index" class="hover:bg-gray-700 transition">
+            <td class="p-2 border border-gray-600">
+              <input v-model="item.name" readonly class="w-full bg-gray-700 text-white border border-gray-500 rounded px-2 py-1 focus:outline-none focus:ring focus:ring-cyan-400" />
+            </td>
+            <td class="p-2 border border-gray-600">
+              <input v-model="item.url" readonly class="w-full bg-gray-700 text-white border border-gray-500 rounded px-2 py-1 focus:outline-none focus:ring focus:ring-cyan-400" />
+            </td>
+            <td class="p-2 border border-gray-600 text-center">
+              <input v-model="item.frontendPort" type="number" readonly class="w-full bg-gray-700 text-white border border-gray-500 rounded px-2 py-1 text-center focus:outline-none focus:ring focus:ring-cyan-400" />
+            </td>
+            <td class="p-2 border border-gray-600 text-center">
+              <input v-model="item.backendPort" type="number" readonly class="w-full bg-gray-700 text-white border border-gray-500 rounded px-2 py-1 text-center focus:outline-none focus:ring focus:ring-cyan-400" />
+            </td>
+            <td class="p-2 border border-gray-600 text-center">
+              <input v-model="item.firewall" type="text" readonly class="w-full bg-gray-700 text-white border border-gray-500 rounded px-2 py-1 text-center focus:outline-none focus:ring focus:ring-cyan-400" />
+              </select>
+            </td>
+            <td class="p-2 border border-gray-600 text-center">
+              <button @click="removeRow(index)" class="text-red-400 hover:text-red-300 font-semibold">🗑 刪除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 分頁 -->
+    <div class="flex items-center justify-center gap-2 mt-6">
+      <button @click="prevPage" :disabled="currentPage === 1"
+              :class="currentPage === 1 ? 'text-gray-500 border-gray-500 cursor-not-allowed' : 'text-cyan-400 border-cyan-400 hover:bg-cyan-900'"
+              class="px-4 py-2 rounded border text-sm font-medium">
+        上一頁
+      </button>
+      <button v-for="page in totalPages" :key="page" @click="currentPage = page"
+              class="px-3 py-2 rounded border text-sm font-medium"
+              :class="currentPage === page ? 'bg-cyan-400 text-black border-cyan-400' : 'text-cyan-400 border-cyan-400 hover:bg-cyan-900'">
+        {{ page }}
+      </button>
+      <button @click="nextPage" :disabled="currentPage === totalPages"
+              :class="currentPage === totalPages ? 'text-gray-500 border-gray-500 cursor-not-allowed' : 'text-cyan-400 border-cyan-400 hover:bg-cyan-900'"
+              class="px-4 py-2 rounded border text-sm font-medium">
+        下一頁
+      </button>
+    </div>
+
+    <!-- 控制按鈕 -->
+    <div class="flex gap-4 mt-6">
+      <button @click="addRow" class="bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700">
+        ➕ 新增一列
+      </button>
+      <button @click="saveChanges" class="bg-green-600 text-white px-5 py-2 rounded-lg shadow hover:bg-green-700">
+        💾 儲存變更
+      </button>
+    </div>
+  </div>
+
+  <!-- Vue 功能 -->
+  <script src="app.js"></script>
+</body>
+</html>
