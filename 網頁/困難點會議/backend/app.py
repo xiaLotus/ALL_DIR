@@ -6,11 +6,10 @@ import os
 import pandas as pd
 import numpy as np
 import win32api
-import os
 import logging
-import os
 from routes.auth import auth_bp  # ✅ 確保有匯入 Blueprint
 from routes.meeting_routes import meeting_bp
+from routes import comment_routes  # ← 1️⃣ 添加這行
 from utils.config import config  # ✅ 匯入配置
 from waitress import serve
 
@@ -43,10 +42,15 @@ def create_app():
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
+    
+    # ✅ 確保會議圖片目錄存在（由 config 統一管理）
+    meeting_images_path = config.get_path('Paths', 'meeting_images')
+    os.makedirs(meeting_images_path, exist_ok=True)
 
     # === 註冊藍圖 ===
     app.register_blueprint(auth_bp, url_prefix="/api")
     app.register_blueprint(meeting_bp, url_prefix="/api")
+    app.register_blueprint(comment_routes.bp)  # ← 2️⃣ 添加這行
 
     return app
 

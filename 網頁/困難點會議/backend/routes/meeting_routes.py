@@ -11,9 +11,219 @@ from utils.config import config  # ✅ 匯入配置
 import uuid
 from datetime import datetime
 from filelock import FileLock
+from werkzeug.utils import secure_filename
 
 logger = logging.getLogger(__name__)
 meeting_bp = Blueprint("meeting", __name__)
+# 允許的圖片格式
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_image_folder(record_id):
+    """取得或建立記錄專屬的圖片資料夾"""
+    # ✅ 從配置檔讀取根目錄路徑
+    base_path = config.get_path('Paths', 'meeting_images')
+    folder_path = os.path.join(base_path, record_id)
+    
+    # 如果資料夾不存在，建立它
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    
+    return folder_path
+
+
+@meeting_bp.route('/upload_meeting_images', methods=['POST'])
+def upload_meeting_images():
+    """
+    上傳多張圖片到指定記錄的資料夾
+    
+    請求格式 (multipart/form-data):
+    - record_id: 記錄的 UUID
+    - images: 多個圖片檔案
+    """
+    try:
+        record_id = request.form.get('record_id')
+        
+        # 驗證 record_id
+        if not record_id:
+            return jsonify({
+                'status': 'error',
+                'message': '缺少 record_id 參數'
+            }), 400
+
+        # 取得上傳的檔案
+        files = request.files.getlist('images')
+        
+        if not files or len(files) == 0:
+            return jsonify({
+                'status': 'error',
+                'message': '沒有上傳任何圖片'
+            }), 400
+        
+        # 取得/建立資料夾
+        folder_path = get_image_folder(record_id)
+        
+        # 取得現有檔案數量，用於命名新檔案
+        existing_files = os.listdir(folder_path) if os.path.exists(folder_path) else []
+        start_index = len(existing_files) + 1
+        
+        uploaded_files = []
+        errors = []
+        
+        for idx, file in enumerate(files):
+            if file and file.filename:
+                # 驗證檔案類型
+                if not allowed_file(file.filename):
+                    errors.append(f'{file.filename}: 不支援的檔案格式')
+                    continue
+                
+                # 生成安全的檔案名稱
+                # 格式: 序號_日期時間_原始檔名
+                original_ext = file.filename.rsplit('.', 1)[1].lower()
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                new_filename = f"{start_index + idx}_{timestamp}_{uuid.uuid4().hex[:8]}.{original_ext}"
+                
+                # 儲存檔案
+                file_path = os.path.join(folder_path, new_filename)
+                file.save(file_path)
+                
+                # 記錄成功上傳的檔案
+                uploaded_files.append({
+                    'filename': new_filename,
+                    'original_name': file.filename,
+                    'path': f'../../backend/static/meeting_images/{record_id}/{new_filename}'
+                })
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'成功上傳 {len(uploaded_files)} 張圖片',
+            'uploaded': uploaded_files,
+            'errors': errors if errors else None,
+            'folder': f'../../backend/static/meeting_images/{record_id}'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'上傳失敗: {str(e)}'
+        }), 500
+
+
+@meeting_bp.route('/get_meeting_images/<record_id>', methods=['GET'])
+def get_meeting_images(record_id):
+    """
+    取得指定記錄的所有圖片
+    """
+    try:
+        # 驗證 UUID 格式
+        # ✅ 驗證 record_id 不為空
+        if not record_id or not str(record_id).strip():
+            return jsonify({
+                'status': 'error',
+                'message': '缺少 record_id 參數'
+            }), 400
+        
+        base_path = config.get_path('Paths', 'meeting_images')
+        folder_path = os.path.join(base_path, record_id)
+        
+        if not os.path.exists(folder_path):
+            return jsonify({
+                'status': 'success',
+                'images': [],
+                'message': '該記錄尚無圖片'
+            })
+        
+        images = []
+        for filename in sorted(os.listdir(folder_path)):
+            if allowed_file(filename):
+                images.append({
+                    'filename': filename,
+                    'url': f'../../backend/static/meeting_images/{record_id}/{filename}'
+                })
+        
+        return jsonify({
+            'status': 'success',
+            'images': images,
+            'count': len(images)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'取得圖片失敗: {str(e)}'
+        }), 500
+
+
+@meeting_bp.route('/delete_meeting_image', methods=['POST'])
+def delete_meeting_image():
+    """
+    刪除指定的圖片
+    """
+    try:
+        data = request.json
+        record_id = data.get('record_id')
+        filename = data.get('filename')
+        
+        if not record_id or not filename:
+            return jsonify({
+                'status': 'error',
+                'message': '缺少必要參數'
+            }), 400
+        
+        base_path = config.get_path('Paths', 'meeting_images')
+        file_path = os.path.join(base_path, record_id, secure_filename(filename))
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({
+                'status': 'success',
+                'message': '圖片已刪除'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': '圖片不存在'
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'刪除失敗: {str(e)}'
+        }), 500
+
+
+@meeting_bp.route('/delete_all_meeting_images/<record_id>', methods=['DELETE'])
+def delete_all_meeting_images(record_id):
+    """
+    刪除指定記錄的所有圖片（包含資料夾）
+    """
+    try:
+        import shutil
+        
+        base_path = config.get_path('Paths', 'meeting_images')
+        folder_path = os.path.join(base_path, record_id)
+        
+        if os.path.exists(folder_path):
+            shutil.rmtree(folder_path)
+            return jsonify({
+                'status': 'success',
+                'message': '已刪除該記錄的所有圖片'
+            })
+        else:
+            return jsonify({
+                'status': 'success',
+                'message': '該記錄沒有圖片'
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'刪除失敗: {str(e)}'
+        }), 500
+    
 
 @meeting_bp.route("/meeting_records", methods=["GET"])
 def meeting_records():

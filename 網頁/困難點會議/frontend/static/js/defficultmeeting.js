@@ -113,8 +113,15 @@ const app = Vue.createApp({
       showMobileColumnSettings: false, // 控制小螢幕欄位設定卡片的顯示
       showMobileMenu: false,           // 控制小螢幕漢堡選單的顯示
       filterSaveTimer: null,  // ✅ 加上這個
-      isLoadingFilters: false // ✅ 加上這個
-        
+      isLoadingFilters: false, // ✅ 加上這個
+
+      images: [],           // { file: File, url: objectURL }
+      isDragging: false,    // 拖曳狀態
+      isUploading: false,    // 上傳中狀態
+      // 圖片預覽相關
+      showImagePreview: false,
+      previewImageUrl: '',
+      previewImageName: ''
     };
   },
 
@@ -1898,12 +1905,6 @@ const app = Vue.createApp({
     // 計算距今天數 - 只返回數字
     calculateDaysAgo(proposalDate, status) {
       if (!proposalDate) return '';
-
-      // Pending / Closed 不計算
-      if (status === 'Pending' || status === 'Closed') {
-        return '';
-      }
-
       
       const dateStr = proposalDate.toString();
       if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) return '';
@@ -1929,7 +1930,7 @@ const app = Vue.createApp({
 
       // Pending / Closed 不顯示顏色
       if (status === 'Pending' || status === 'Closed') {
-        return '';
+        return 'text-gray-500';  // Pending/Closed 顯示灰色
       }
 
       const dateStr = proposalDate.toString();
@@ -2407,7 +2408,7 @@ const app = Vue.createApp({
       let result = [];
       let currentLine = '';
       let currentWidth = 0;
-      const maxWidth = 35; // 設定最大寬度為35
+      const maxWidth = 28; // 設定最大寬度為28
       
       for (let i = 0; i < textStr.length; i++) {
         const char = textStr[i];
@@ -2477,82 +2478,212 @@ const app = Vue.createApp({
     },
 
     // 新增紀錄
+    // async addRecord() {
+    //   // 驗證必填欄位
+    //   const requiredFields = [
+    //     { field: '棟別', value: this.newRecord.棟別, label: '棟別' },
+    //     { field: '樓層', value: this.newRecord.樓層, label: '樓層' },
+    //     { field: '站點', value: this.newRecord.站點, label: '站點' },
+    //     { field: '提案人', value: this.infoname, label: '提案人' },
+    //     { field: '問題描述', value: this.newRecord.問題描述, label: '問題描述' },
+    //     { field: 'PDCA', value: this.newRecord.PDCA, label: 'PDCA' },
+    //     { field: 'Status', value: this.newRecord.Status, label: 'Status' }
+    //   ];
+
+    //   const missingFields = [];
+
+    //   // 檢查每個必填欄位
+    //   requiredFields.forEach(item => {
+    //     if (item.field === '棟別' || item.field === '樓層') {
+    //       // 陣列類型的欄位檢查
+    //       if (!item.value || (Array.isArray(item.value) && item.value.length === 0)) {
+    //         missingFields.push(item.label);
+    //       }
+    //     } else {
+    //       // 一般字串欄位檢查
+    //       if (!item.value || item.value.trim() === '') {
+    //         missingFields.push(item.label);
+    //       }
+    //     }
+    //   });
+
+    //   // 如果有缺少的欄位，顯示提醒
+    //   if (missingFields.length > 0) {
+    //     await Swal.fire({
+    //       icon: 'warning',
+    //       title: '請填寫必填欄位',
+    //       html: `
+    //         <div class="text-left">
+    //           <p class="mb-3 text-gray-600">以下欄位為必填，請完成填寫：</p>
+    //           <ul class="list-disc list-inside space-y-1">
+    //             ${missingFields.map(field => `<li class="text-red-600 font-medium">${field}</li>`).join('')}
+    //           </ul>
+    //         </div>
+    //       `,
+    //       confirmButtonText: '確認',
+    //       confirmButtonColor: '#3b82f6',
+    //       customClass: {
+    //         popup: 'text-sm'
+    //       }
+    //     });
+    //     return; // 停止提交
+    //   }
+
+    //   // 清理專案Owner字串：
+    //   // 1. 去除頭尾空格
+    //   // 2. 將多個逗號或空格換成單一逗號+空格
+    //   // 3. 移除結尾可能多餘的逗號
+    //   const cleanedOwners = this.newRecord.專案Owner
+    //     .trim()
+    //     .replace(/[\s,]+/g, ', ') // 將連續的空格或逗號標準化
+    //     .replace(/,$/, '');      // 移除結尾的逗號
+
+
+    //   // 修改棟別和樓層的處理邏輯，統一轉換為字串格式
+    //   const payload = {
+    //     ...this.newRecord,
+    //     // 棟別處理：如果選的是全棟別，直接存"全棟別"，否則用逗號連接
+    //     棟別: this.newRecord.棟別.includes('全棟別') ? '全棟別' : this.newRecord.棟別.join(', '),
+    //     // 樓層處理：如果選的是全樓層，直接存"全樓層"，否則用逗號連接
+    //     樓層: this.newRecord.樓層.includes('全樓層') ? '全樓層' : this.newRecord.樓層.join(', '),
+    //     // 站點已經是字串格式，直接使用
+    //     站點: this.newRecord.站點.trim(),
+    //     提案人: this.infoname,   // ✅ 加這裡
+    //     專案Owner: cleanedOwners,  // ✅ 陣列轉字串
+    //     進度紀錄: this.newRecord.進度紀錄 || ''
+    //   };
+
+    //   try {
+    //     const res = await fetch(`http://127.0.0.1:5000/api/add_record?username=${encodeURIComponent(this.username)}`, {
+    //       method: "POST",
+    //       headers: {
+    //         "Content-Type": "application/json"
+    //       },
+    //       body: JSON.stringify(payload)
+    //     });
+
+    //       // ✅ 檢查 HTTP 狀態碼
+    //     if (!res.ok) {
+    //       throw new Error(`HTTP error! status: ${res.status}`);
+    //     }
+
+    //     const data = await res.json();
+
+    //     if (data.status === "success") {
+    //       // 顯示成功訊息
+    //       await Swal.fire({
+    //         icon: 'success',
+    //         title: '新增成功！',
+    //         text: '資料已成功儲存',
+    //         confirmButtonText: '確認',
+    //         confirmButtonColor: '#10b981',
+    //         timer: 2000,
+    //         timerProgressBar: true
+    //       });
+
+    //       // 重新載入資料
+    //       this.loadMeetingRecords();
+    //       this.newRecord = this.getNewRecordTemplate();
+    //       this.showAddModal = false;
+    //       console.log("✅ 新增成功");
+    //     } else {
+    //       await Swal.fire({
+    //         icon: 'error',
+    //         title: '新增失敗',
+    //         text: data.message || "未知錯誤",
+    //         confirmButtonText: '確認',
+    //         confirmButtonColor: '#ef4444'
+    //       });
+    //     }
+    //   } catch (error) {
+    //     console.error("❌ 發送新增資料失敗：", error);
+    //     await Swal.fire({
+    //       icon: 'error',
+    //       title: '系統錯誤',
+    //       text: '後端錯誤，請稍後再試',
+    //       confirmButtonText: '確認',
+    //       confirmButtonColor: '#ef4444'
+    //     });
+    //   }
+    // },
+
+    // ============================================================
+// 📌 替換 addRecord 方法
+// 位置：defficultmeeting.js 第 2482-2610 行
+// ============================================================
+
+    // 新增紀錄
     async addRecord() {
-      // 驗證必填欄位
-      const requiredFields = [
-        { field: '棟別', value: this.newRecord.棟別, label: '棟別' },
-        { field: '樓層', value: this.newRecord.樓層, label: '樓層' },
-        { field: '站點', value: this.newRecord.站點, label: '站點' },
-        { field: '提案人', value: this.infoname, label: '提案人' },
-        { field: '問題描述', value: this.newRecord.問題描述, label: '問題描述' },
-        { field: 'PDCA', value: this.newRecord.PDCA, label: 'PDCA' },
-        { field: 'Status', value: this.newRecord.Status, label: 'Status' }
-      ];
-
-      const missingFields = [];
-
-      // 檢查每個必填欄位
-      requiredFields.forEach(item => {
-        if (item.field === '棟別' || item.field === '樓層') {
-          // 陣列類型的欄位檢查
-          if (!item.value || (Array.isArray(item.value) && item.value.length === 0)) {
-            missingFields.push(item.label);
-          }
-        } else {
-          // 一般字串欄位檢查
-          if (!item.value || item.value.trim() === '') {
-            missingFields.push(item.label);
-          }
-        }
-      });
-
-      // 如果有缺少的欄位，顯示提醒
-      if (missingFields.length > 0) {
-        await Swal.fire({
-          icon: 'warning',
-          title: '請填寫必填欄位',
-          html: `
-            <div class="text-left">
-              <p class="mb-3 text-gray-600">以下欄位為必填，請完成填寫：</p>
-              <ul class="list-disc list-inside space-y-1">
-                ${missingFields.map(field => `<li class="text-red-600 font-medium">${field}</li>`).join('')}
-              </ul>
-            </div>
-          `,
-          confirmButtonText: '確認',
-          confirmButtonColor: '#3b82f6',
-          customClass: {
-            popup: 'text-sm'
-          }
-        });
-        return; // 停止提交
-      }
-
-      // 清理專案Owner字串：
-      // 1. 去除頭尾空格
-      // 2. 將多個逗號或空格換成單一逗號+空格
-      // 3. 移除結尾可能多餘的逗號
-      const cleanedOwners = this.newRecord.專案Owner
-        .trim()
-        .replace(/[\s,]+/g, ', ') // 將連續的空格或逗號標準化
-        .replace(/,$/, '');      // 移除結尾的逗號
-
-
-      // 修改棟別和樓層的處理邏輯，統一轉換為字串格式
-      const payload = {
-        ...this.newRecord,
-        // 棟別處理：如果選的是全棟別，直接存"全棟別"，否則用逗號連接
-        棟別: this.newRecord.棟別.includes('全棟別') ? '全棟別' : this.newRecord.棟別.join(', '),
-        // 樓層處理：如果選的是全樓層，直接存"全樓層"，否則用逗號連接
-        樓層: this.newRecord.樓層.includes('全樓層') ? '全樓層' : this.newRecord.樓層.join(', '),
-        // 站點已經是字串格式，直接使用
-        站點: this.newRecord.站點.trim(),
-        提案人: this.infoname,   // ✅ 加這裡
-        專案Owner: cleanedOwners,  // ✅ 陣列轉字串
-        進度紀錄: this.newRecord.進度紀錄 || ''
-      };
+      // ✅ 防止重複提交
+      if (this.isUploading) return;
+      this.isUploading = true;
 
       try {
+        // 驗證必填欄位
+        const requiredFields = [
+          { field: '棟別', value: this.newRecord.棟別, label: '棟別' },
+          { field: '樓層', value: this.newRecord.樓層, label: '樓層' },
+          { field: '站點', value: this.newRecord.站點, label: '站點' },
+          { field: '提案人', value: this.infoname, label: '提案人' },
+          { field: '問題描述', value: this.newRecord.問題描述, label: '問題描述' },
+          { field: 'PDCA', value: this.newRecord.PDCA, label: 'PDCA' },
+          { field: 'Status', value: this.newRecord.Status, label: 'Status' }
+        ];
+
+        const missingFields = [];
+
+        // 檢查每個必填欄位
+        requiredFields.forEach(item => {
+          if (item.field === '棟別' || item.field === '樓層') {
+            if (!item.value || (Array.isArray(item.value) && item.value.length === 0)) {
+              missingFields.push(item.label);
+            }
+          } else {
+            if (!item.value || item.value.trim() === '') {
+              missingFields.push(item.label);
+            }
+          }
+        });
+
+        // 如果有缺少的欄位，顯示提醒
+        if (missingFields.length > 0) {
+          await Swal.fire({
+            icon: 'warning',
+            title: '請填寫必填欄位',
+            html: `
+              <div class="text-left">
+                <p class="mb-3 text-gray-600">以下欄位為必填，請完成填寫：</p>
+                <ul class="list-disc list-inside space-y-1">
+                  ${missingFields.map(field => `<li class="text-red-600 font-medium">${field}</li>`).join('')}
+                </ul>
+              </div>
+            `,
+            confirmButtonText: '確認',
+            confirmButtonColor: '#3b82f6',
+            customClass: {
+              popup: 'text-sm'
+            }
+          });
+          return; // 停止提交
+        }
+
+        // 清理專案Owner字串
+        const cleanedOwners = this.newRecord.專案Owner
+          .trim()
+          .replace(/[\s,]+/g, ', ')
+          .replace(/,$/, '');
+
+        // 準備 payload
+        const payload = {
+          ...this.newRecord,
+          棟別: this.newRecord.棟別.includes('全棟別') ? '全棟別' : this.newRecord.棟別.join(', '),
+          樓層: this.newRecord.樓層.includes('全樓層') ? '全樓層' : this.newRecord.樓層.join(', '),
+          站點: this.newRecord.站點.trim(),
+          提案人: this.infoname,
+          專案Owner: cleanedOwners,
+          進度紀錄: this.newRecord.進度紀錄 || ''
+        };
+
         const res = await fetch(`http://127.0.0.1:5000/api/add_record?username=${encodeURIComponent(this.username)}`, {
           method: "POST",
           headers: {
@@ -2561,7 +2692,6 @@ const app = Vue.createApp({
           body: JSON.stringify(payload)
         });
 
-          // ✅ 檢查 HTTP 狀態碼
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
         }
@@ -2569,19 +2699,52 @@ const app = Vue.createApp({
         const data = await res.json();
 
         if (data.status === "success") {
+          // ✅ 如果有圖片，上傳圖片
+          let imageUploadSuccess = true;
+          const imageCount = this.images.length;
+          
+          if (imageCount > 0) {
+            // 取得剛建立的記錄 ID (後端需要回傳)
+            const recordId = data.id || data.record_id || payload.id;
+            
+            if (recordId) {
+              const uploadResult = await this.uploadImages(recordId);
+              
+              if (!uploadResult.success) {
+                imageUploadSuccess = false;
+                await Swal.fire({
+                  icon: 'warning',
+                  title: '記錄已新增',
+                  html: `<p>但圖片上傳失敗：</p><p class="text-red-500 text-sm">${uploadResult.message}</p>`,
+                  confirmButtonColor: '#f59e0b'
+                });
+              }
+            } else {
+              console.warn('⚠️ 後端未回傳 record_id，無法上傳圖片');
+            }
+          }
+
           // 顯示成功訊息
-          await Swal.fire({
-            icon: 'success',
-            title: '新增成功！',
-            text: '資料已成功儲存',
-            confirmButtonText: '確認',
-            confirmButtonColor: '#10b981',
-            timer: 2000,
-            timerProgressBar: true
-          });
+          if (imageUploadSuccess) {
+            await Swal.fire({
+              icon: 'success',
+              title: '新增成功！',
+              text: imageCount > 0 
+                ? `資料已儲存，已上傳 ${imageCount} 張圖片`
+                : '資料已成功儲存',
+              confirmButtonText: '確認',
+              confirmButtonColor: '#10b981',
+              timer: 2000,
+              timerProgressBar: true
+            });
+          }
 
           // 重新載入資料
           this.loadMeetingRecords();
+          
+          // ✅ 清理圖片
+          this.clearAllImages();
+          
           this.newRecord = this.getNewRecordTemplate();
           this.showAddModal = false;
           console.log("✅ 新增成功");
@@ -2603,6 +2766,9 @@ const app = Vue.createApp({
           confirmButtonText: '確認',
           confirmButtonColor: '#ef4444'
         });
+      } finally {
+        // ✅ 確保重置上傳狀態
+        this.isUploading = false;
       }
     },
 
@@ -3050,17 +3216,149 @@ const app = Vue.createApp({
     goDataChart() {
         const username = localStorage.getItem('username') || '';
         window.location.href = `datachart.html?username=${encodeURIComponent(username)}`;
-    }
+    },
+
+    // 上傳圖片（含驗證）
+    handleImageUpload(event) {
+        const files = event.target.files;
+        if (!files) return;
+
+        for (let file of files) {
+            // 驗證檔案類型
+            if (!file.type.match(/^image\/(png|jpe?g|gif|webp)$/i)) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: '檔案格式不支援',
+                    text: `${file.name} 不是支援的圖片格式`,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+                continue;
+            }
+
+            // 驗證檔案大小 (限制 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: '檔案過大',
+                    text: `${file.name} 超過 10MB 限制`,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+                continue;
+            }
+
+            const url = URL.createObjectURL(file);
+            this.images.push({ file, url });
+        }
+
+        // 清空 input
+        event.target.value = "";
+        
+        // 更新圖示
+        this.$nextTick(() => lucide.createIcons());
+    },
+    
+    // 處理拖曳上傳
+    handleDrop(event) {
+        this.isDragging = false;
+        const files = event.dataTransfer.files;
+        this.handleImageUpload({ target: { files }, value: '' });
+    },
+
+    // 清除全部圖片
+    clearAllImages() {
+        this.images.forEach(img => URL.revokeObjectURL(img.url));
+        this.images = [];
+    },
+
+    // ✅ 新增：開啟圖片預覽
+    openImagePreview(url, name) {
+        this.previewImageUrl = url;
+        this.previewImageName = name || '圖片預覽';
+        this.showImagePreview = true;
+        
+        // 更新圖示
+        this.$nextTick(() => lucide.createIcons());
+        
+        // 監聽 ESC 鍵關閉
+        document.addEventListener('keydown', this.handlePreviewKeydown);
+    },
+
+    // ✅ 新增：關閉圖片預覽
+    closeImagePreview() {
+        this.showImagePreview = false;
+        this.previewImageUrl = '';
+        this.previewImageName = '';
+        
+        // 移除 ESC 鍵監聽
+        document.removeEventListener('keydown', this.handlePreviewKeydown);
+    },
+
+    // ✅ 新增：處理預覽時的鍵盤事件
+    handlePreviewKeydown(event) {
+        if (event.key === 'Escape') {
+            this.closeImagePreview();
+        }
+    },
+
+    // 上傳圖片到後端
+    async uploadImages(recordId) {
+        if (this.images.length === 0) {
+            return { success: true, message: '無圖片需上傳' };
+        }
+
+        const formData = new FormData();
+        formData.append('record_id', recordId);
+        
+        this.images.forEach((img) => {
+            formData.append('images', img.file);
+        });
+
+        try {
+            const response = await axios.post(
+                'http://127.0.0.1:5000/api/upload_meeting_images',
+                formData,
+                {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                }
+            );
+
+            return {
+                success: response.data.status === 'success',
+                message: response.data.message,
+                uploaded: response.data.uploaded
+            };
+        } catch (error) {
+            console.error('圖片上傳失敗:', error);
+            return {
+                success: false,
+                message: error.response?.data?.message || '圖片上傳失敗'
+            };
+        }
+    },
         
   },
   
   watch: {
     showAddModal(newVal) {
-      if (newVal) {
-        this.$nextTick(() => {
-          lucide.createIcons();
-        });
-      }
+        if (newVal) {
+            this.$nextTick(() => {
+                lucide.createIcons();
+            });
+        } else {
+            // ✅ Modal 關閉時清理圖片預覽
+            this.images.forEach(img => URL.revokeObjectURL(img.url));
+            this.images = [];
+            this.isDragging = false;
+            
+            // ✅ 同時關閉圖片預覽
+            this.closeImagePreview();
+        }
     },
     
     records: {

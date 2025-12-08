@@ -1678,7 +1678,7 @@
 
         <!-- 新增區塊 Modal -->
         <div v-if="showAddModal" 
-             class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 modal-backdrop">
+             class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] modal-backdrop">
             <div class="bg-white rounded-2xl shadow-2xl w-[95%] max-w-[1100px] max-h-[85vh] flex flex-col modal-content">
                 
                 <!-- Modal Header -->
@@ -1972,8 +1972,132 @@
                                 rows="4"
                                 placeholder="請詳細描述問題..."></textarea>
                         </div>
+
+                        <!-- ✅ 圖片上傳區塊 -->
+                        <div class="group col-span-4 mt-2">
+                            <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                                <i data-lucide="image" class="w-4 h-4 text-gray-400"></i>
+                                附加圖片
+                                <span class="text-xs text-gray-400 font-normal">(可多選，支援 PNG/JPG/GIF/WebP)</span>
+                            </label>
+                            
+                            <!-- 拖曳上傳區域 -->
+                            <div 
+                                class="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all"
+                                :class="isDragging 
+                                    ? 'border-blue-500 bg-blue-50' 
+                                    : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/30'"
+                                @click="$refs.imageInput.click()"
+                                @dragover.prevent="isDragging = true"
+                                @dragleave.prevent="isDragging = false"
+                                @drop.prevent="handleDrop($event)">
+                                
+                                <i data-lucide="upload-cloud" class="w-10 h-10 mx-auto text-gray-400 mb-2"></i>
+                                <p class="text-gray-600 text-sm">點擊或拖曳圖片至此處上傳</p>
+                                <p class="text-gray-400 text-xs mt-1">單檔限制 10MB</p>
+                                
+                                <input 
+                                    ref="imageInput"
+                                    type="file" 
+                                    accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" 
+                                    multiple
+                                    @change="handleImageUpload"
+                                    class="hidden"
+                                />
+                            </div>
+
+                            <!-- 已選圖片預覽 -->
+                            <div v-if="images.length > 0" class="mt-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="text-sm text-gray-600 flex items-center gap-2">
+                                        <i data-lucide="images" class="w-4 h-4"></i>
+                                        已選擇 {{ images.length }} 張圖片
+                                    </span>
+                                    <button 
+                                        type="button"
+                                        @click="clearAllImages"
+                                        class="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 transition-colors">
+                                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                        清除全部
+                                    </button>
+                                </div>
+                                
+                                <div class="grid grid-cols-4 gap-3">
+                                    <div 
+                                        v-for="(img, index) in images" 
+                                        :key="index" 
+                                        class="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
+                                        
+                                        <img 
+                                            :src="img.url" 
+                                            class="w-full h-full object-cover cursor-zoom-in" 
+                                            :alt="'預覽圖片 ' + (index + 1)"
+                                            @click.stop="openImagePreview(img.url, img.file.name)"
+                                        />
+                                        <button 
+                                            type="button"
+                                            @click.stop="removeImage(index)"
+                                            class="absolute top-1 right-1 bg-red-500 hover:bg-red-600 
+                                                   text-white rounded-full w-6 h-6 flex items-center justify-center
+                                                   opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
+                                            <i data-lucide="x" class="w-3 h-3"></i>
+                                        </button>
+                                        
+                                        <div class="absolute bottom-0 left-0 bg-black/60 text-white text-xs px-2 py-1 rounded-tr-lg">
+                                            {{ index + 1 }}
+                                        </div>
+                                        
+                                        <div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white 
+                                                    text-xs p-1.5 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {{ img.file.name }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
+
+
+
+
+                <!-- 圖片預覽 Lightbox Modal（獨立顯示，不在 v-for 內） -->
+                                        <div v-if="showImagePreview" 
+                                            class="fixed inset-0 bg-black/90 flex items-center justify-center z-[100]"
+                                            @click.self="closeImagePreview">
+                                            
+                                            <!-- 關閉按鈕 -->
+                                            <button 
+                                                @click="closeImagePreview"
+                                                class="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-10 
+                                                    bg-black/30 rounded-full p-2 hover:bg-black/50">
+                                                <i data-lucide="x" class="w-8 h-8"></i>
+                                            </button>
+                                            
+                                            <!-- 檔案名稱 -->
+                                            <div class="absolute top-4 left-4 text-white text-sm bg-black/50 px-4 py-2 rounded-lg flex items-center gap-2">
+                                                <i data-lucide="image" class="w-4 h-4"></i>
+                                                {{ previewImageName }}
+                                            </div>
+                                            
+                                            <!-- 圖片容器 -->
+                                            <div class="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center p-4">
+                                                <img 
+                                                    :src="previewImageUrl" 
+                                                    :alt="previewImageName"
+                                                    class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                                                    @click.stop
+                                                />
+                                            </div>
+                                            
+                                            <!-- 底部提示 -->
+                                            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-sm flex items-center gap-2">
+                                                <i data-lucide="info" class="w-4 h-4"></i>
+                                                點擊外部區域或按 ESC 關閉
+                                            </div>
+                                        </div>
+
 
                 <!-- Modal Footer -->
                 <div class="px-8 py-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
@@ -1983,19 +2107,27 @@
                             <i data-lucide="x" class="w-4 h-4"></i>
                             取消
                         </button>
-                        <button @click="addRecord" 
-                            class="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all font-medium shadow-md hover:shadow-lg">
-                            <i data-lucide="save" class="w-4 h-4"></i>
-                            確認新增
+                        <button 
+                            @click="addRecord" 
+                            :disabled="isUploading"
+                            :class="isUploading 
+                                ? 'bg-gray-400 cursor-not-allowed' 
+                                : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'"
+                            class="flex items-center gap-2 px-6 py-2.5 text-white rounded-lg transition-all font-medium shadow-md hover:shadow-lg">
+                            <i v-if="isUploading" data-lucide="loader" class="w-4 h-4 animate-spin"></i>
+                            <i v-else data-lucide="save" class="w-4 h-4"></i>
+                            {{ isUploading ? '上傳中...' : '確認新增' }}
                         </button>
                     </div>
                 </div>
             </div>
         </div>
 
+
+
         <!-- 移除確認 Modal -->
         <div v-if="showRejectModal" 
-             class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 modal-backdrop">
+             class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] modal-backdrop">
             <div class="bg-white rounded-2xl shadow-2xl w-[500px] max-h-[70vh] flex flex-col modal-content">
                 <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-red-50 to-red-100 rounded-t-2xl">
                     <div class="flex justify-between items-center">
@@ -2019,7 +2151,7 @@
 
         <!-- 復原確認 Modal -->
         <div v-if="showUnrejectModal" 
-             class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 modal-backdrop">
+             class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] modal-backdrop">
             <div class="bg-white rounded-2xl shadow-2xl w-[500px] max-h-[70vh] flex flex-col modal-content">
                 <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-green-100 rounded-t-2xl">
                     <div class="flex justify-between items-center">
@@ -2043,7 +2175,7 @@
 
         <!-- 徹底刪除確認 Modal -->
         <div v-if="showPermanentDeleteModal" 
-             class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 modal-backdrop">
+             class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] modal-backdrop">
             <div class="bg-white rounded-2xl shadow-2xl w-[500px] max-h-[70vh] flex flex-col modal-content">
                 <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-red-50 to-red-100 rounded-t-2xl">
                     <div class="flex justify-between items-center">

@@ -9,7 +9,8 @@ const app = Vue.createApp({
       originalData: null,
       isSaving: false,
       userRole: null, // 用戶角色：管理員、編輯人、提案人、預覽人
-      isReadOnly: false, // 是否為唯讀模式
+      isReadOnly: false, // 是否為唯讀模式（控制記錄編輯）
+      canComment: true,  // ✅ 新增：是否可以留言（所有人都可以留言）
       permissionChecked: false, // 權限檢查狀態
       recordData: {
         id: '',
@@ -41,7 +42,36 @@ const app = Vue.createApp({
       ownerSearchResults: [],   // 存放搜尋結果
       showOwnerDropdown: false,   // 控制下拉選單顯示
       focusedOwnerIndex: -1,    // 鍵盤選擇索引
+
+      images: [],               // 已選擇的圖片陣列
+      isDragging: false,        // 拖曳狀態
+      isUploading: false,       // 上傳中狀態
+      showImagePreview: false,  // 圖片預覽 Modal
+      previewImageUrl: '',      // 預覽圖片 URL
+      previewImageName: '',     // 預覽圖片名稱
+
+      // 留言板相關
+      comments: {},                    // 留言物件 { timestamp: commentData }
+      newComment: '',                  // 新留言內容
+      selectedCommentImages: [],       // 選中的留言圖片
     };
+  },
+
+  computed: {
+    // 排序後的留言（最新在上）
+    sortedComments() {
+      return Object.entries(this.comments)
+        .map(([timestamp, data]) => ({
+          timestamp,
+          ...data
+        }))
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    },
+    
+    // 留言總數
+    commentCount() {
+      return Object.keys(this.comments).length;
+    }
   },
 
   methods: {
@@ -162,6 +192,7 @@ const app = Vue.createApp({
         if (await this.checkSinglePermission('管理員')) {
           this.userRole = '管理員';
           this.isReadOnly = false;
+          this.canComment = true;  // ✅ 可以留言
           this.permissionChecked = true;
           console.log(`✓ 用戶 ${this.username} 擁有管理員權限 - 可完整編輯`);
           return true;
@@ -171,6 +202,7 @@ const app = Vue.createApp({
         if (await this.checkSinglePermission('編輯人')) {
           this.userRole = '編輯人';
           this.isReadOnly = false;
+          this.canComment = true;  // ✅ 可以留言
           this.permissionChecked = true;
           console.log(`✓ 用戶 ${this.username} 擁有編輯人權限 - 可完整編輯`);
           return true;
@@ -180,6 +212,7 @@ const app = Vue.createApp({
         if (await this.checkSinglePermission('提案人')) {
           this.userRole = '提案人';
           this.isReadOnly = true;
+          this.canComment = true;  // ✅ 可以留言
           this.permissionChecked = true;
           console.log(`✓ 用戶 ${this.username} 擁有提案人權限`);
           // 注意：提案人是否可編輯自己的案件，將在 loadRecordData 中判斷
@@ -187,12 +220,13 @@ const app = Vue.createApp({
           return true;
         }
 
-        // 4. 檢查預覽人權限（只讀，與提案人相同）
+        // 4. 檢查預覽人權限（✅ 可留言但不能編輯記錄）
         if (await this.checkSinglePermission('預覽人')) {
           this.userRole = '預覽人';
-          this.isReadOnly = true;
+          this.isReadOnly = true;   // 不能編輯記錄
+          this.canComment = true;   // ✅ 但可以留言
           this.permissionChecked = true;
-          console.log(`✓ 用戶 ${this.username} 擁有預覽人權限 - 只能查看`);
+          console.log(`✓ 用戶 ${this.username} 擁有預覽人權限 - 可查看與留言`);
           // await this.showViewModeDialog('預覽人');
           return true;
         }
@@ -253,6 +287,29 @@ const app = Vue.createApp({
         `,
         confirmButtonText: '了解',
         confirmButtonColor: '#3b82f6'
+      });
+    },
+
+    // 顯示 Status 鎖定提示對話框（提案人只能編輯 New 狀態）
+    async showStatusLockedDialog(currentStatus) {
+      await Swal.fire({
+        icon: 'warning',
+        title: '案件已進入處理流程',
+        html: `
+          <div class="text-left">
+            <p class="mb-3 text-gray-600">此案件目前狀態為 <strong class="text-orange-600">${currentStatus}</strong></p>
+            <p class="text-sm text-blue-600 font-medium mb-2">✓ 您可以查看所有項目內容和進度記錄</p>
+            <p class="text-sm text-red-600 font-medium mb-3">✗ 提案人只能修改 <strong>New</strong> 狀態的案件</p>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3">
+              <p class="text-sm text-amber-700">
+                <strong>說明：</strong>案件進入處理流程後，需由編輯人或管理員進行後續變更
+              </p>
+            </div>
+            <p class="text-sm text-gray-500 mt-3">如需修改，請聯繫編輯人或管理員</p>
+          </div>
+        `,
+        confirmButtonText: '了解',
+        confirmButtonColor: '#f59e0b'
       });
     },
 
@@ -484,12 +541,20 @@ parseUrlParams() {
             
             console.log("記錄資料載入成功:", this.recordData);
             console.log("用戶角色:", this.userRole, "唯讀模式:", this.isReadOnly);
-            // 🆕 權限判斷：提案人只能編輯自己的案件
+            // 🆕 權限判斷：提案人只能編輯自己的 New 狀態案件
             if (this.userRole === '提案人') {
               if (this.recordData.提案人 === this.username) {
-                // 提案人是本人，允許編輯
-                this.isReadOnly = false;
-                console.log(`✅ 提案人 ${this.username} 可修改自己的案件`);
+                // 提案人是本人，檢查 Status
+                if (this.recordData.Status === 'New') {
+                  // Status 為 New，允許編輯
+                  this.isReadOnly = false;
+                  console.log(`✅ 提案人 ${this.username} 可修改自己的 New 狀態案件`);
+                } else {
+                  // Status 不是 New，不允許編輯
+                  this.isReadOnly = true;
+                  console.log(`🔒 提案人 ${this.username} 無法修改非 New 狀態的案件 (當前狀態: ${this.recordData.Status})`);
+                  await this.showStatusLockedDialog(this.recordData.Status);
+                }
               } else {
                 // 提案人不是本人，強制唯讀
                 this.isReadOnly = true;
@@ -961,6 +1026,14 @@ parseUrlParams() {
 
         console.log("準備儲存資料:", payload);
 
+        // ✅ 上傳圖片（如果有新增的話）
+        const newImages = this.images.filter(img => !img.existing && img.file);
+        if (newImages.length > 0 && !silent) {
+          const uploadResult = await this.uploadImages();
+          if (!uploadResult.success) {
+            return false;
+          }
+        }
         const response = await axios.put(
           `http://127.0.0.1:5000/api/update_record?username=${encodeURIComponent(this.username)}`, 
           payload
@@ -990,25 +1063,67 @@ parseUrlParams() {
           
           console.log("📌 儲存時記錄滾動位置:", this.scrollPosition);
           
-          // 顯示成功訊息
+          // 💾 保存當前滾動位置（Alert 前）
+          const scrollContainer = document.querySelector('.content-left');
+          const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+          
+          // 顯示成功訊息並提供選擇
           if (!silent) {
-            await Swal.fire({
+            const hasNewImages = this.images.filter(img => !img.existing && img.file).length > 0;
+            const uploadedImages = this.images.filter(img => img.existing).length;
+            
+            const result = await Swal.fire({
               icon: 'success',
               title: '儲存成功',
-              text: '會議記錄已成功更新',
-              timer: 1500,
-              showConfirmButton: false
+              html: `
+                <div class="text-left">
+                  <p class="mb-3 text-gray-700">會議記錄已成功更新</p>
+                  ${hasNewImages || uploadedImages > 0 ? `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                      <p class="text-sm text-blue-700 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"/>
+                        </svg>
+                        圖片已上傳：${uploadedImages} 張
+                      </p>
+                    </div>
+                  ` : ''}
+                  <p class="text-sm text-gray-600">請選擇接下來的操作：</p>
+                </div>
+              `,
+              showCancelButton: true,
+              confirmButtonText: '返回上一頁',
+              cancelButtonText: '留在本頁',
+              confirmButtonColor: '#3b82f6',
+              cancelButtonColor: '#6b7280',
+              reverseButtons: true,
+              didClose: () => {
+                // 🔄 恢復滾動位置
+                if (scrollContainer) {
+                  scrollContainer.scrollTop = savedScrollTop;
+                }
+              }
             });
+            
+            if (result.isConfirmed) {
+              // 用戶選擇返回上一頁
+              const returnUrl = `defficultmeeting.html?username=${encodeURIComponent(this.username)}&scrollPos=${this.scrollPosition}`;
+              console.log("📌 準備返回主頁面，URL:", returnUrl);
+              window.location.href = returnUrl;
+            } else {
+              // 用戶選擇留在本頁
+              console.log("✓ 用戶選擇留在本頁");
+              // 重新載入圖片以確保狀態同步
+              await this.loadExistingImages();
+              this.hasUnsavedChanges = false;
+            }
+          } else {
+            // silent 模式，直接返回
+            return true;
           }
           
-          // 構建回到主頁面的 URL，包含滾動位置
-          const returnUrl = `defficultmeeting.html?username=${encodeURIComponent(this.username)}&scrollPos=${this.scrollPosition}`;
-          
-          console.log("📌 準備返回主頁面，URL:", returnUrl);
-          
-          // 導向回主頁面
-          window.location.href = returnUrl;
           return true;
+
           
         } else {
           throw new Error(response.data?.message || '更新失敗');
@@ -1044,6 +1159,778 @@ parseUrlParams() {
             console.error('❌ 載入篩選狀態失敗:', error);
         }
     },
+
+
+handleImageUpload(event) {
+  if (this.isReadOnly) {
+    Swal.fire({
+      icon: 'warning',
+      title: '權限不足',
+      text: '唯讀模式下無法上傳圖片',
+      confirmButtonColor: '#ef4444'
+    });
+    return;
+  }
+
+  const files = Array.from(event.target.files);
+  this.processImages(files);
+  event.target.value = '';
+},
+
+// 📸 處理拖曳上傳
+handleDrop(event) {
+  if (this.isReadOnly) return;
+  
+  this.isDragging = false;
+  const files = Array.from(event.dataTransfer.files);
+  const imageFiles = files.filter(file => file.type.startsWith('image/'));
+  
+  if (imageFiles.length > 0) {
+    this.processImages(imageFiles);
+  } else {
+    Swal.fire({
+      icon: 'warning',
+      title: '無效的檔案',
+      text: '請上傳圖片檔案（PNG、JPG、GIF、WebP）',
+      confirmButtonColor: '#f59e0b'
+    });
+  }
+},
+
+// 📸 處理圖片檔案
+processImages(files) {
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+  
+  files.forEach(file => {
+    if (!validTypes.includes(file.type)) {
+      Swal.fire({
+        icon: 'error',
+        title: '不支援的檔案格式',
+        text: `${file.name} 不是有效的圖片格式`,
+        confirmButtonColor: '#ef4444'
+      });
+      return;
+    }
+    
+    if (file.size > maxSize) {
+      Swal.fire({
+        icon: 'error',
+        title: '檔案過大',
+        text: `${file.name} 超過 10MB 限制`,
+        confirmButtonColor: '#ef4444'
+      });
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      this.images.push({
+        file: file,
+        url: e.target.result,
+        name: file.name,
+        existing: false
+      });
+      this.hasUnsavedChanges = true;
+    };
+    reader.readAsDataURL(file);
+  });
+},
+
+// 📸 移除單張圖片
+async removeImage(index) {
+  if (this.isReadOnly) return;
+  
+  const image = this.images[index];
+  const isExisting = image.existing === true;
+  
+  
+  // 💾 保存當前滾動位置
+  const scrollContainer = document.querySelector('.content-left');
+  const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+  const result = await Swal.fire({
+    title: '確認刪除',
+    html: `
+      <div class="text-left">
+        <p class="mb-2">確定要刪除這張圖片嗎？</p>
+        <p class="text-sm text-gray-600">檔案名稱: <span class="font-medium">${image.name}</span></p>
+        ${isExisting ? '<p class="text-sm text-red-600 mt-2">⚠️ 這是已上傳的圖片，刪除後將無法復原</p>' : ''}
+      </div>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: '確認刪除',
+    cancelButtonText: '取消',
+    scrollbarPadding: false,
+    heightAuto: false,
+    willOpen: () => {
+      // 🔒 鎖定背景滾動位置
+      document.body.style.overflow = 'hidden';
+    },
+    didClose: () => {
+      // 🔓 解鎖背景滾動
+      document.body.style.overflow = '';
+      // 🔄 恢復滾動位置
+      if (scrollContainer) {
+        scrollContainer.scrollTop = savedScrollTop;
+      }
+    }
+  });
+  
+  if (!result.isConfirmed) return;
+  
+  if (isExisting) {
+    try {
+      const response = await axios.post(
+        `http://127.0.0.1:5000/api/delete_meeting_image?username=${encodeURIComponent(this.username)}`,
+        {
+          record_id: this.recordData.id,
+          filename: image.filename
+        }
+      );
+      
+      if (response.data && response.data.status === 'success') {
+        this.images.splice(index, 1);
+        
+        // 💾 保存滾動位置（成功提示前）
+        const currentScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+        Swal.fire({
+          icon: 'success',
+          title: '已刪除',
+          text: '圖片已從伺服器移除',
+          timer: 1500,
+          showConfirmButton: false,
+          scrollbarPadding: false,
+          heightAuto: false,
+          didClose: () => {
+            if (scrollContainer) {
+              scrollContainer.scrollTop = currentScrollTop;
+            }
+          }
+        });
+      } else {
+        throw new Error(response.data.message || '刪除失敗');
+      }
+    } catch (error) {
+      console.error('刪除圖片失敗:', error);
+      
+      // 💾 保存滾動位置（錯誤提示前）
+      const currentScrollTop2 = scrollContainer ? scrollContainer.scrollTop : 0;
+      Swal.fire({
+        icon: 'error',
+        title: '刪除失敗',
+        text: error.message || '無法刪除圖片，請稍後再試',
+        confirmButtonColor: '#ef4444',
+        scrollbarPadding: false,
+        heightAuto: false,
+        didClose: () => {
+          if (scrollContainer) {
+            scrollContainer.scrollTop = currentScrollTop2;
+          }
+        }
+      });
+    }
+  } else {
+    this.images.splice(index, 1);
+    this.hasUnsavedChanges = true;
+    
+    // 💾 保存滾動位置（成功提示前）
+    const currentScrollTop3 = scrollContainer ? scrollContainer.scrollTop : 0;
+    Swal.fire({
+      icon: 'success',
+      title: '已移除',
+      timer: 1000,
+      showConfirmButton: false,
+      scrollbarPadding: false,
+      heightAuto: false,
+      didClose: () => {
+        // 🔄 恢復滾動位置
+        if (scrollContainer) {
+          scrollContainer.scrollTop = currentScrollTop3;
+        }
+      }
+    });
+  }
+},
+
+// 📸 清除所有圖片
+async clearAllImages() {
+  if (this.isReadOnly) return;
+  
+  const existingCount = this.images.filter(img => img.existing).length;
+  const newCount = this.images.filter(img => !img.existing).length;
+  
+  // 💾 保存當前滾動位置
+  const scrollContainer = document.querySelector('.content-left');
+  const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+  
+  const result = await Swal.fire({
+    title: '確認清除',
+    html: `
+      <div class="text-left">
+        <p class="mb-3">確定要清除所有圖片嗎？</p>
+        <ul class="list-disc list-inside space-y-1 text-sm text-gray-600">
+          ${existingCount > 0 ? `<li class="text-red-600">已上傳的圖片: ${existingCount} 張 (將從伺服器刪除)</li>` : ''}
+          ${newCount > 0 ? `<li>新選擇的圖片: ${newCount} 張</li>` : ''}
+        </ul>
+        ${existingCount > 0 ? '<p class="text-sm text-red-600 mt-3">⚠️ 已上傳的圖片刪除後無法復原！</p>' : ''}
+      </div>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: '確認清除全部',
+    cancelButtonText: '取消',
+    scrollbarPadding: false,
+    heightAuto: false,
+    willOpen: () => {
+      document.body.style.overflow = 'hidden';
+    },
+    didClose: () => {
+      document.body.style.overflow = '';
+      // 🔄 恢復滾動位置
+      if (scrollContainer) {
+        scrollContainer.scrollTop = savedScrollTop;
+      }
+    }
+  });
+  
+  if (!result.isConfirmed) return;
+  
+  const existingImages = this.images.filter(img => img.existing);
+  if (existingImages.length > 0) {
+    try {
+      const deletePromises = existingImages.map(img => 
+        axios.post(
+          `http://127.0.0.1:5000/api/delete_meeting_image?username=${encodeURIComponent(this.username)}`,
+          {
+            record_id: this.recordData.id,
+            filename: img.filename
+          }
+        )
+      );
+      
+      await Promise.all(deletePromises);
+      
+      
+      // 💾 保存滾動位置（成功提示前）
+      const currentScrollTop4 = scrollContainer ? scrollContainer.scrollTop : 0;
+      Swal.fire({
+        icon: 'success',
+        title: '已清除全部',
+        text: `成功刪除 ${this.images.length} 張圖片`,
+        timer: 1500,
+        showConfirmButton: false,
+        scrollbarPadding: false,
+        heightAuto: false,
+        didClose: () => {
+          // 🔄 恢復滾動位置
+          if (scrollContainer) {
+            scrollContainer.scrollTop = currentScrollTop4;
+          }
+        }
+      });
+    } catch (error) {
+      console.error('批量刪除圖片失敗:', error);
+      
+      // 💾 保存滾動位置（錯誤提示前）
+      const currentScrollTop5 = scrollContainer ? scrollContainer.scrollTop : 0;
+      Swal.fire({
+        icon: 'error',
+        title: '部分刪除失敗',
+        text: '部分圖片無法刪除，請稍後再試',
+        confirmButtonColor: '#ef4444',
+        scrollbarPadding: false,
+        heightAuto: false,
+        didClose: () => {
+          // 🔄 恢復滾動位置
+          if (scrollContainer) {
+            scrollContainer.scrollTop = currentScrollTop5;
+          }
+        }
+      });
+      return;
+    }
+  } else {
+    
+    // 💾 保存滾動位置（成功提示前）
+    const currentScrollTop6 = scrollContainer ? scrollContainer.scrollTop : 0;
+    Swal.fire({
+      icon: 'success',
+      title: '已清除全部',
+      timer: 1000,
+      showConfirmButton: false,
+      scrollbarPadding: false,
+      heightAuto: false,
+      didClose: () => {
+        // 🔄 恢復滾動位置
+        if (scrollContainer) {
+          scrollContainer.scrollTop = currentScrollTop6;
+        }
+      }
+    });
+  }
+  
+  this.images = [];
+  this.hasUnsavedChanges = true;
+},
+
+// 📸 打開圖片預覽
+openImagePreview(url, name) {
+  this.previewImageUrl = url;
+  this.previewImageName = name;
+  this.showImagePreview = true;
+  document.addEventListener('keydown', this.handlePreviewKeydown);
+},
+
+// 📸 關閉圖片預覽
+closeImagePreview() {
+  this.showImagePreview = false;
+  this.previewImageUrl = '';
+  this.previewImageName = '';
+  document.removeEventListener('keydown', this.handlePreviewKeydown);
+},
+
+// 📸 處理預覽的鍵盤事件
+handlePreviewKeydown(event) {
+  if (event.key === 'Escape') {
+    this.closeImagePreview();
+  }
+},
+
+// 📸 上傳圖片到伺服器（只上傳新增的圖片）
+async uploadImages() {
+  const newImages = this.images.filter(img => !img.existing && img.file);
+  
+  if (newImages.length === 0) {
+    return { success: true, images: [] };
+  }
+  
+  this.isUploading = true;
+  
+  try {
+    const formData = new FormData();
+    formData.append('record_id', this.recordData.id);
+    
+    newImages.forEach((img) => {
+      formData.append('images', img.file);
+    });
+    
+    console.log(`準備上傳 ${newImages.length} 張新圖片`);
+    
+    const response = await axios.post(
+      `http://127.0.0.1:5000/api/upload_meeting_images?username=${encodeURIComponent(this.username)}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+    
+    this.isUploading = false;
+    
+    if (response.data && response.data.status === 'success') {
+      console.log('圖片上傳成功:', response.data.uploaded);
+      
+      // 將新上傳的圖片標記為已存在
+      newImages.forEach((img, index) => {
+        const imgIndex = this.images.indexOf(img);
+        if (imgIndex !== -1 && response.data.uploaded[index]) {
+          this.images[imgIndex].existing = true;
+          this.images[imgIndex].filename = response.data.uploaded[index].filename;
+          this.images[imgIndex].url = response.data.uploaded[index].path;
+        }
+      });
+      
+      return { 
+        success: true, 
+        images: response.data.uploaded 
+      };
+    } else {
+      throw new Error(response.data.message || '上傳失敗');
+    }
+  } catch (error) {
+    this.isUploading = false;
+    console.error('圖片上傳失敗:', error);
+    
+    await Swal.fire({
+      icon: 'error',
+      title: '圖片上傳失敗',
+      text: error.message || '請稍後再試',
+      confirmButtonColor: '#ef4444'
+    });
+    
+    return { success: false, images: [] };
+  }
+},
+
+// 📸 載入該項目已存在的所有圖片
+async loadExistingImages() {
+  try {
+    console.log(`正在載入項目 ${this.recordData.id} 的圖片...`);
+    
+    const response = await axios.get(
+      `http://127.0.0.1:5000/api/get_meeting_images/${this.recordData.id}?username=${encodeURIComponent(this.username)}`
+    );
+    
+    if (response.data && response.data.status === 'success' && response.data.images) {
+      this.images = response.data.images.map(img => ({
+        url: img.url,
+        name: img.filename,
+        filename: img.filename,
+        file: null,
+        existing: true
+      }));
+      
+      console.log(`✓ 成功載入 ${this.images.length} 張圖片`);
+    } else {
+      console.log('該項目沒有圖片');
+      this.images = [];
+    }
+  } catch (error) {
+    console.error('載入圖片失敗:', error);
+    this.images = [];
+  }
+},
+
+// ==================== 💬 留言板相關方法 ====================
+
+// 載入留言
+async loadComments() {
+  try {
+    console.log(`正在載入項目 ${this.recordData.id} 的留言...`);
+    const response = await axios.get(
+      `http://127.0.0.1:5000/api/get_comments/${this.recordData.id}?username=${encodeURIComponent(this.username)}`
+    );
+    
+    if (response.data && response.data.status === 'success') {
+      this.comments = response.data.data || {};
+      console.log(`✓ 成功載入 ${this.commentCount} 則留言`);
+      
+      // ✅ 載入完成後重新初始化 Lucide Icons
+      this.$nextTick(() => {
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+          console.log('✓ Lucide Icons 已重新初始化');
+        }
+      });
+    }
+  } catch (error) {
+    console.error('載入留言失敗:', error);
+    this.comments = {};
+  }
+},
+
+// 選擇留言圖片
+selectCommentImages() {
+  this.$refs.commentImageInput.click();
+},
+
+// 處理留言圖片選擇
+handleCommentImageSelect(event) {
+  const files = Array.from(event.target.files);
+  const maxSize = 10 * 1024 * 1024; // 10MB (提高單檔限制)
+  const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+  
+  // ✅ 已移除圖片數量限制 - 可以上傳任意張數
+  
+  files.forEach(file => {
+    if (!validTypes.includes(file.type)) {
+      Swal.fire({
+        icon: 'error',
+        title: '不支援的檔案格式',
+        text: `${file.name} 不是有效的圖片格式`,
+        confirmButtonColor: '#ef4444',
+        scrollbarPadding: false,
+        heightAuto: false
+      });
+      return;
+    }
+    
+    if (file.size > maxSize) {
+      Swal.fire({
+        icon: 'error',
+        title: '檔案過大',
+        text: `${file.name} 超過 10MB 限制`,
+        confirmButtonColor: '#ef4444',
+        scrollbarPadding: false,
+        heightAuto: false
+      });
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      this.selectedCommentImages.push({
+        file: file,
+        url: e.target.result,
+        name: file.name
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+  
+  event.target.value = '';
+},
+
+// 移除選中的留言圖片
+removeSelectedCommentImage(index) {
+  this.selectedCommentImages.splice(index, 1);
+},
+
+// 發送留言
+async postComment() {
+  if (!this.newComment.trim() && this.selectedCommentImages.length === 0) {
+    Swal.fire({
+      icon: 'warning',
+      title: '請輸入留言內容或選擇圖片',
+      confirmButtonColor: '#8b5cf6',
+      scrollbarPadding: false,
+      heightAuto: false
+    });
+    return;
+  }
+  
+  try {
+    const timestamp = Date.now().toString();
+    
+    // 1. 先創建留言記錄（直接傳送 display_name 和 role）
+    const response = await axios.post(
+      `http://127.0.0.1:5000/api/add_comment?username=${encodeURIComponent(this.username)}`,
+      {
+        record_id: this.recordData.id,
+        content: this.newComment,
+        timestamp: timestamp,
+        display_name: this.infoname || this.username,  // 直接使用前端的 infoname
+        role: this.userRole || '未知'                   // 直接使用前端的 userRole
+      }
+    );
+    
+    if (response.data && response.data.status === 'success') {
+      // 2. 如果有圖片，上傳圖片
+      if (this.selectedCommentImages.length > 0) {
+        await this.uploadCommentImages(timestamp);
+      }
+      
+      // 3. 重新載入留言
+      await this.loadComments();
+      
+      // 4. 清空輸入
+      this.newComment = '';
+      this.selectedCommentImages = [];
+      
+      // 5. 滾動到最新留言並刷新圖標
+      this.$nextTick(() => {
+        const commentList = document.querySelector('.w-\\[30\\%\\]:last-child .overflow-y-auto');
+        if (commentList) {
+          commentList.scrollTop = 0;
+        }
+        
+        // 重新初始化 Lucide Icons（重要！）
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+        }
+      });
+      
+      Swal.fire({
+        icon: 'success',
+        title: '留言已發布',
+        timer: 1500,
+        showConfirmButton: false,
+        scrollbarPadding: false,
+        heightAuto: false
+      });
+    }
+  } catch (error) {
+    console.error('發送留言失敗:', error);
+    Swal.fire({
+      icon: 'error',
+      title: '發送失敗',
+      text: '無法發送留言，請稍後再試',
+      confirmButtonColor: '#ef4444',
+      scrollbarPadding: false,
+      heightAuto: false
+    });
+  }
+},
+
+// 上傳留言圖片
+async uploadCommentImages(timestamp) {
+  const formData = new FormData();
+  formData.append('record_id', this.recordData.id);
+  formData.append('timestamp', timestamp);
+  
+  this.selectedCommentImages.forEach(img => {
+    formData.append('images', img.file);
+  });
+  
+  try {
+    await axios.post(
+      `http://127.0.0.1:5000/api/upload_comment_images?username=${encodeURIComponent(this.username)}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+    console.log('✓ 留言圖片上傳成功');
+  } catch (error) {
+    console.error('上傳留言圖片失敗:', error);
+    throw error;
+  }
+},
+
+// 獲取留言圖片 URL
+getCommentImageUrl(filename) {
+  return `http://127.0.0.1:5000/api/get_comment_image/${this.recordData.id}/${filename}?username=${encodeURIComponent(this.username)}`;
+},
+
+// 查看留言圖片
+viewCommentImage(url, name = '留言圖片') {
+  this.previewImageUrl = url;
+  this.previewImageName = name;
+  this.showImagePreview = true;
+},
+
+// 格式化留言時間
+formatCommentTime(datetime) {
+  if (!datetime) return '';
+  
+  const date = new Date(datetime);
+  const now = new Date();
+  const diff = now - date;
+  
+  // 1分鐘內
+  if (diff < 60000) {
+    return '剛剛';
+  }
+  // 1小時內
+  if (diff < 3600000) {
+    return `${Math.floor(diff / 60000)} 分鐘前`;
+  }
+  // 今天
+  if (date.toDateString() === now.toDateString()) {
+    return `今天 ${date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  // 昨天
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return `昨天 ${date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  // 其他
+  return date.toLocaleString('zh-TW', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+},
+
+// 獲取角色徽章樣式
+getRoleBadgeClass(role) {
+  const classes = {
+    '管理員': 'bg-red-100 text-red-600',
+    '編輯人': 'bg-blue-100 text-blue-600',
+    '提案人': 'bg-green-100 text-green-600',
+    '預覽人': 'bg-gray-100 text-gray-600'
+  };
+  return classes[role] || 'bg-gray-100 text-gray-600';
+},
+
+// 判斷是否可以刪除留言
+canDeleteComment(comment) {
+  if (!comment) {
+    console.log('❌ canDeleteComment: comment is null/undefined');
+    return false;
+  }
+  
+  console.log('🔍 檢查刪除權限:', {
+    commentUsername: comment.username,
+    currentUsername: this.username,
+    userRole: this.userRole,
+    isAdmin: this.userRole === '管理員',
+    isOwner: comment.username === this.username
+  });
+  
+  // 管理員可以刪除所有留言
+  if (this.userRole === '管理員') {
+    console.log('✅ 管理員權限，可以刪除');
+    return true;
+  }
+  
+  // 用戶可以刪除自己的留言
+  const canDelete = comment.username === this.username;
+  console.log(canDelete ? '✅ 是自己的留言，可以刪除' : '❌ 不是自己的留言，不能刪除');
+  return canDelete;
+},
+
+// 刪除留言
+async deleteComment(timestamp) {
+  const result = await Swal.fire({
+    title: '確認刪除',
+    text: '確定要刪除這則留言嗎？',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: '確認刪除',
+    cancelButtonText: '取消',
+    scrollbarPadding: false,
+    heightAuto: false
+  });
+  
+  if (!result.isConfirmed) return;
+  
+  try {
+    const response = await axios.delete(
+      `http://127.0.0.1:5000/api/delete_comment?username=${encodeURIComponent(this.username)}`,
+      {
+        data: {
+          record_id: this.recordData.id,
+          timestamp: timestamp
+        }
+      }
+    );
+    
+    if (response.data && response.data.status === 'success') {
+      await this.loadComments();
+      
+      // 刷新圖標
+      this.$nextTick(() => {
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+        }
+      });
+      
+      Swal.fire({
+        icon: 'success',
+        title: '已刪除',
+        timer: 1500,
+        showConfirmButton: false,
+        scrollbarPadding: false,
+        heightAuto: false
+      });
+    }
+  } catch (error) {
+    console.error('刪除留言失敗:', error);
+    Swal.fire({
+      icon: 'error',
+      title: '刪除失敗',
+      text: '無法刪除留言，請稍後再試',
+      confirmButtonColor: '#ef4444',
+      scrollbarPadding: false,
+      heightAuto: false
+    });
+  }
+}
+
+
   },
 
   watch: {
@@ -1074,6 +1961,16 @@ parseUrlParams() {
 
     // 2️⃣ 再載入記錄資料
     await this.loadRecordData();
+
+    // ✅ 載入已存在的圖片
+    if (this.recordId) {
+      await this.loadExistingImages();
+    }
+
+    // ✅ 載入留言
+    if (this.recordId) {
+      await this.loadComments();
+    }
 
     // 3️⃣ 載完後，針對「提案人」做「是否本人」的最終判斷
     if (this.userRole === '提案人') {

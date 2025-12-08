@@ -211,7 +211,7 @@
                         <!-- 使用者資訊 -->
                         <div class="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 text-sm font-medium px-4 py-2 rounded-full border border-blue-200">
                             <i data-lucide="user" class="w-4 h-4"></i>
-                            <span>{{ username }}</span>
+                            <span>{{ infoname || username }}</span>
                         </div>
                     </div>
                 </div>
@@ -219,9 +219,9 @@
         </nav>
 
         <!-- 主要內容區域 -->
-        <div class="flex-1 flex gap-4 p-4 h-0 min-h-0">
+        <div class="flex-1 flex gap-3 p-4 h-0 min-h-0">
             <!-- 左側：編輯表單 (55%) -->
-            <div class="w-[55%] content-left">
+            <div class="w-[40%] content-left">
                 <div class="bg-white rounded-xl shadow-lg h-full overflow-y-auto custom-scrollbar card-shadow">
                     <!-- 表單標題 -->
                     <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
@@ -560,7 +560,128 @@
                                     :placeholder="isReadOnly ? '' : '請詳細描述問題...'"
                                     :readonly="isReadOnly"></textarea>
                             </div>
+
+
+                            <!-- ✅ 圖片上傳區塊 -->
+                            <div class="col-span-2" v-if="!isReadOnly || images.length > 0">
+                                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+                                    <i data-lucide="image" class="w-5 h-5 text-gray-400"></i>
+                                    附加圖片
+                                    <span v-if="!isReadOnly" class="text-xs text-gray-400 font-normal">(可多選，支援 PNG/JPG/GIF/WebP)</span>
+                                    <span v-else class="text-xs text-gray-400 font-normal">({{ images.length }} 張)</span>
+                                </label>
+                                
+                                <!-- 拖曳上傳區域 (僅非唯讀模式顯示) -->
+                                <div v-if="!isReadOnly"
+                                    class="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all"
+                                    :class="isDragging 
+                                        ? 'border-blue-500 bg-blue-50' 
+                                        : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/30'"
+                                    @click="$refs.imageInput.click()"
+                                    @dragover.prevent="isDragging = true"
+                                    @dragleave.prevent="isDragging = false"
+                                    @drop.prevent="handleDrop($event)">
+                                    
+                                    <i data-lucide="upload-cloud" class="w-12 h-12 mx-auto text-gray-400 mb-3"></i>
+                                    <p class="text-gray-600 text-sm font-medium">點擊或拖曳圖片至此處上傳</p>
+                                    <p class="text-gray-400 text-xs mt-2">單檔限制 10MB</p>
+                                    
+                                    <input 
+                                        ref="imageInput"
+                                        type="file" 
+                                        accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" 
+                                        multiple
+                                        @change="handleImageUpload"
+                                        class="hidden"
+                                    />
+                                </div>
+
+                                <!-- 已選圖片預覽 -->
+                                <div v-if="images.length > 0" :class="isReadOnly ? '' : 'mt-4'">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-sm text-gray-700 flex items-center gap-2 font-medium">
+                                                <i data-lucide="images" class="w-5 h-5 text-blue-500"></i>
+                                                共 {{ images.length }} 張圖片
+                                            </span>
+                                            <!-- 圖片類型統計 -->
+                                            <div class="flex items-center gap-2 text-xs">
+                                                <span v-if="images.filter(img => img.existing).length > 0" 
+                                                      class="bg-green-100 text-green-700 px-2 py-1 rounded-md flex items-center gap-1">
+                                                    <i data-lucide="check-circle" class="w-3 h-3"></i>
+                                                    已存在: {{ images.filter(img => img.existing).length }}
+                                                </span>
+                                                <span v-if="images.filter(img => !img.existing).length > 0" 
+                                                      class="bg-blue-100 text-blue-700 px-2 py-1 rounded-md flex items-center gap-1">
+                                                    <i data-lucide="plus-circle" class="w-3 h-3"></i>
+                                                    新增: {{ images.filter(img => !img.existing).length }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            v-if="!isReadOnly && images.length > 0"
+                                            type="button"
+                                            @click="clearAllImages"
+                                            class="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                            清除全部
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+                                        <div 
+                                            v-for="(img, index) in images" 
+                                            :key="index" 
+                                            class="relative group w-48 h-48 flex-shrink-0 rounded-lg overflow-hidden border-2 shadow-sm bg-gray-100 hover:border-blue-400 transition-all"
+                                            :class="img.existing ? 'border-green-200' : 'border-gray-200'">
+                                            
+                                            <img 
+                                                :src="img.url" 
+                                                class="w-full h-full object-cover cursor-zoom-in" 
+                                                :alt="'圖片 ' + (index + 1)"
+                                                @click.stop="openImagePreview(img.url, img.name)"
+                                            />
+
+                                            <button 
+                                                v-if="!isReadOnly"
+                                                type="button"
+                                                @click.stop="removeImage(index)"
+                                                class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 
+                                                       text-white rounded-full w-7 h-7 flex items-center justify-center
+                                                       opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                                                <i data-lucide="x" class="w-4 h-4"></i>
+                                            </button>
+                                            
+                                            <!-- 圖片狀態標記 -->
+                                            <div class="absolute top-2 left-2 flex items-center gap-1">
+                                                <div v-if="img.existing" 
+                                                     class="bg-green-500 text-white text-xs px-2 py-1 rounded-md font-medium shadow-md flex items-center gap-1"
+                                                     title="已上傳的圖片">
+                                                    <i data-lucide="check-circle" class="w-3 h-3"></i>
+                                                    已存在
+                                                </div>
+                                                <div v-else 
+                                                     class="bg-blue-500 text-white text-xs px-2 py-1 rounded-md font-medium shadow-md flex items-center gap-1"
+                                                     title="新增的圖片（尚未上傳）">
+                                                    <i data-lucide="plus-circle" class="w-3 h-3"></i>
+                                                    新增
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="absolute bottom-0 left-0 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-2 py-1 rounded-tr-lg font-medium">
+                                                {{ index + 1 }}
+                                            </div>
+                                            
+                                            <div class="absolute bottom-0 left-0 right-0 bg-black/75 text-white 
+                                                        text-xs p-2 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {{ img.name }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
 
                         <!-- 操作按鈕 -->
                         <div class="flex justify-center gap-4 mt-8 pt-6 border-t border-gray-200">
@@ -569,7 +690,7 @@
                                 <i data-lucide="x" class="w-4 h-4"></i>
                                 {{ isReadOnly ? '關閉查看' : '取消編輯' }}
                             </button>
-                            <button v-if="!isReadOnly" @click="saveRecord" 
+                            <button v-if="!isReadOnly" @click="saveRecord()" 
                                 class="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium py-3 px-6 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg floating-button">
                                 <i data-lucide="save" class="w-4 h-4"></i>
                                 儲存變更
@@ -579,8 +700,8 @@
                 </div>
             </div>
 
-            <!-- 右側：進度紀錄管理 (45%) -->
-            <div class="w-[45%] flex flex-col h-full content-right">
+            <!-- 中間：進度紀錄管理 (30%) -->
+            <div class="w-[30%] flex flex-col h-full content-middle">
                 
                 <!-- 上方：新增進度紀錄區域 (30%) -->
                 <div class="h-[30%] min-h-[180px] bg-white rounded-xl shadow-lg card-shadow border border-gray-200 mb-3">
@@ -640,7 +761,7 @@
                         </div>
                     </div>
                     
-                    <div class="flex-1 overflow-y-auto custom-scrollbar p-4 min-h-0">
+                    <div class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 min-h-0">
                         <div v-if="progressHistory.length === 0" class="text-center py-16">
                             <div class="text-gray-300 mb-4">
                                 <i data-lucide="clipboard-list" class="w-16 h-16 mx-auto"></i>
@@ -676,7 +797,7 @@
                                 </div>
                                 
                                 <!-- 內容區域 -->
-                                <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap ml-4 font-medium">
+                                <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words ml-4 font-medium overflow-x-hidden">
                                     {{ getProgressContent(record) }}
                                 </div>
                                 
@@ -687,7 +808,248 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 右側：留言板 (30%) -->
+            <div class="w-[30%] flex flex-col h-full">
+                
+                <!-- 上方：新增留言區域 (30%) -->
+                <div class="h-[30%] min-h-[180px] bg-white rounded-xl shadow-lg card-shadow border border-gray-200 mb-3">
+                    <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-xl flex-shrink-0">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-3 h-6 bg-gradient-to-b from-purple-400 to-pink-500 rounded-full shadow-sm"></div>
+                                <h3 class="text-base font-bold text-gray-800">{{ isReadOnly ? '留言查看' : '新增留言' }}</h3>
+                            </div>
+                            <div v-if="isReadOnly" class="flex items-center gap-2 bg-amber-100 text-amber-700 px-2 py-1 rounded-full text-xs font-medium">
+                                <i data-lucide="lock" class="w-3 h-3"></i>
+                                <span>唯讀</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 flex flex-col h-[calc(100%-70px)]">
+                        <!-- 留言輸入框 -->
+                        <textarea v-model="newComment" 
+                            :class="[
+                                'flex-1 w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm transition-all resize-none placeholder-gray-400',
+                                !canComment ? 'readonly-textarea' : 'focus:border-purple-500 focus:ring-1 focus:ring-purple-100 input-focus bg-gray-50/50'
+                            ]"
+                            :placeholder="!canComment ? '無權限留言' : '輸入留言內容... (Ctrl+Enter 快速發送)'"
+                            :readonly="!canComment"
+                            @keydown.ctrl.enter="postComment"></textarea>
+                        
+                        <!-- 圖片選擇與發送按鈕 -->
+                        <div v-if="canComment" class="flex gap-2 mt-3">
+                            <button @click="selectCommentImages()" 
+                                class="flex items-center gap-1 px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                                title="選擇圖片 (不限數量，每張10MB)">
+                                <i data-lucide="image" class="w-4 h-4"></i>
+                                <span>圖片</span>
+                                <span v-if="selectedCommentImages.length > 0" 
+                                    class="ml-1 px-1.5 py-0.5 bg-purple-500 text-white text-xs rounded-full">
+                                    {{ selectedCommentImages.length }}
+                                </span>
+                            </button>
+                            
+                            <button @click="postComment()" 
+                                class="flex-1 flex items-center justify-center gap-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                                :disabled="!newComment.trim() && selectedCommentImages.length === 0">
+                                <i data-lucide="send" class="w-4 h-4"></i>
+                                <span>發送</span>
+                            </button>
+                        </div>
+                        
+                        <!-- ✅ 已選圖片預覽（優化版：支持更多圖片） -->
+                        <div v-if="selectedCommentImages.length > 0" 
+                            class="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs text-gray-500 font-medium flex items-center gap-1">
+                                    <i data-lucide="images" class="w-3 h-3"></i>
+                                    已選擇 {{ selectedCommentImages.length }} 張圖片
+                                </span>
+                                <button @click="selectedCommentImages = []"
+                                    class="text-xs text-red-500 hover:text-red-700 transition-colors">
+                                    清除全部
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
+                                <div v-for="(img, idx) in selectedCommentImages" 
+                                    :key="idx"
+                                    class="relative group aspect-square">
+                                    <img :src="img.url" 
+                                        :alt="img.name"
+                                        class="w-full h-full object-cover rounded-lg border-2 border-gray-200 cursor-pointer hover:border-purple-400 transition-all"
+                                        @click="openImagePreview(img.url, img.name)">
+                                    <button @click="removeSelectedCommentImage(idx)"
+                                        class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                        ×
+                                    </button>
+                                    <div class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] px-1 py-0.5 truncate rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {{ img.name }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 無權限提示 -->
+                        <div v-if="!canComment" class="mt-3 text-center text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-xl py-2 px-4">
+                            <i data-lucide="eye" class="w-4 h-4 inline mr-2"></i>
+                            您無權限發送留言
+                        </div>
+                    </div>
+                    
+                    <!-- 隱藏的文件選擇器 -->
+                    <input type="file" 
+                        ref="commentImageInput"
+                        @change="handleCommentImageSelect"
+                        accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                        multiple
+                        class="hidden">
+                </div>
+
+                <!-- 下方：留言歷史區域 (70%) -->
+                <div class="flex-1 bg-white rounded-xl shadow-lg card-shadow border border-gray-200 flex flex-col min-h-0">
+                    <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-xl flex-shrink-0">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-3 h-6 bg-gradient-to-b from-purple-400 to-pink-500 rounded-full shadow-sm"></div>
+                                <h3 class="text-base font-bold text-gray-800">留言討論</h3>
+                            </div>
+                            <span class="px-3 py-1 bg-purple-100 text-purple-600 rounded-full text-sm font-medium">
+                                {{ commentCount }} 則
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- 留言列表（可滾動） -->
+                    <div class="flex-1 overflow-y-auto overflow-x-hidden p-4 custom-scrollbar">
+                        <div class="space-y-3">
+                            <!-- 單則留言 -->
+                            <div v-for="comment in sortedComments" 
+                                :key="comment.timestamp"
+                                class="group bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-3 border border-gray-200 hover:shadow-md transition-all">
+                                
+                                <!-- 留言頭部 -->
+                                <div class="flex items-start justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <!-- 用戶頭像 -->
+                                        <div class="w-8 h-8 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                            {{ comment.display_name ? comment.display_name.charAt(0) : '?' }}
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-medium text-gray-800 text-sm">
+                                                    {{ comment.display_name || '未知用戶' }}
+                                                </span>
+                                                <span class="px-2 py-0.5 text-xs rounded-full"
+                                                    :class="getRoleBadgeClass(comment.role)">
+                                                    {{ comment.role }}
+                                                </span>
+                                            </div>
+                                            <span class="text-xs text-gray-400">
+                                                {{ formatCommentTime(comment.created_at) }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 刪除按鈕 -->
+                                    <button v-if="canDeleteComment(comment)"
+                                        @click="deleteComment(comment.timestamp)"
+                                        class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all duration-200 p-1 flex-shrink-0"
+                                        title="刪除留言">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- 留言內容 -->
+                                <p v-if="comment.content" class="text-sm text-gray-700 whitespace-pre-wrap break-words mb-2 pl-10 overflow-x-hidden">
+                                    {{ comment.content }}
+                                </p>
+                                
+                                <!-- ✅ 留言圖片（優化版：支持任意數量） -->
+                                <div v-if="comment.images && comment.images.length > 0" 
+                                    class="mt-2 pl-10">
+                                    <!-- 圖片統計 -->
+                                    <div class="flex items-center gap-1 mb-1.5 text-xs text-gray-500">
+                                        <i data-lucide="image" class="w-3 h-3"></i>
+                                        <span>{{ comment.images.length }} 張圖片</span>
+                                    </div>
+                                    <!-- 響應式網格：1-3張時動態調整，4張以上固定4列 -->
+                                    <div class="grid gap-2"
+                                        :class="{
+                                            'grid-cols-1': comment.images.length === 1,
+                                            'grid-cols-2': comment.images.length === 2,
+                                            'grid-cols-3': comment.images.length === 3,
+                                            'grid-cols-4': comment.images.length >= 4
+                                        }">
+                                        <div v-for="(img, idx) in comment.images"
+                                            :key="idx"
+                                            class="relative group aspect-square overflow-hidden rounded-lg border-2 border-gray-200 hover:border-purple-400 transition-all cursor-pointer"
+                                            @click="viewCommentImage(getCommentImageUrl(img.filename), img.original_name || '留言圖片')">
+                                            <img :src="getCommentImageUrl(img.filename)"
+                                                :alt="img.original_name || '留言圖片'"
+                                                class="w-full h-full object-cover hover:scale-110 transition-transform duration-300">
+                                            <!-- 圖片編號標記 -->
+                                            <div class="absolute top-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full pointer-events-none">
+                                                {{ idx + 1 }}
+                                            </div>
+                                            <!-- 放大提示 -->
+                                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
+                                                <i data-lucide="zoom-in" class="w-6 h-6 text-white drop-shadow-lg"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 空狀態 -->
+                        <div v-if="commentCount === 0" 
+                            class="flex flex-col items-center justify-center h-full text-gray-400 py-12">
+                            <i data-lucide="message-circle" class="w-16 h-16 mb-3 opacity-30"></i>
+                            <p class="text-lg font-medium">還沒有留言</p>
+                            <p class="text-sm mt-1">成為第一個留言的人吧！</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
+            <!-- ✅ 圖片預覽 Lightbox Modal -->
+        <div v-if="showImagePreview" 
+            class="fixed inset-0 bg-black/90 flex items-center justify-center z-[100]"
+            @click.self="closeImagePreview">
+            
+            <!-- 關閉按鈕 -->
+            <button 
+                @click="closeImagePreview"
+                class="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-10 
+                    bg-black/30 rounded-full p-3 hover:bg-black/50">
+                <i data-lucide="x" class="w-8 h-8"></i>
+            </button>
+            
+            <!-- 檔案名稱 -->
+            <div class="absolute top-4 left-4 text-white text-sm bg-black/50 px-4 py-2 rounded-lg flex items-center gap-2">
+                <i data-lucide="image" class="w-4 h-4"></i>
+                {{ previewImageName }}
+            </div>
+            
+            <!-- 圖片容器 -->
+            <div class="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center p-4">
+                <img 
+                    :src="previewImageUrl" 
+                    :alt="previewImageName"
+                    class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                    @click.stop
+                />
+            </div>
+            
+            <!-- 底部提示 -->
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/60 text-sm flex items-center gap-2">
+                <i data-lucide="info" class="w-4 h-4"></i>
+                點擊外部區域或按 ESC 關閉
+            </div>
+        </div>
+        
     </div>
 
     <script src="../static/js/editing_meeting.js"></script>
